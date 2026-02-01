@@ -66,6 +66,11 @@ PROGRESS_HEADERS = [
     "Дата и время окончания чтения",
 ]
 
+AI_RECS_HEADERS = [
+    "created_at",
+    "result_json",
+]
+
 def _norm(v: Any) -> str:
     return ("" if v is None else str(v)).strip()
 
@@ -140,7 +145,8 @@ class SheetsRepo:
         sh = self.gc.open_by_key(self.sheet_id)
         ws_books = sh.worksheet(BOOKS_SHEET_NAME)
         ws_progress = sh.worksheet(PROGRESS_SHEET_NAME)
-        return ws_books, ws_progress
+        ws_ai = sh.worksheet(AI_RECS_SHEET)
+        return ws_books, ws_progress, ws_ai
 
     def _ensure_headers(self, ws: gspread.Worksheet, expected: List[str]):
         # Ensure sheet has enough columns
@@ -163,7 +169,7 @@ class SheetsRepo:
         return idx
 
     def read_all(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        ws_books, ws_progress = self._open()
+        ws_books, ws_progress, ws_ai = self._open()
         self._ensure_headers(ws_books, BOOKS_HEADERS)
         self._ensure_headers(ws_progress, PROGRESS_HEADERS)
 
@@ -333,19 +339,26 @@ class SheetsRepo:
         ]
         ws_progress.append_row(row, value_input_option="USER_ENTERED")
 
-    def append_ai_recs(self, recs):
+    def append_ai_recs(self, recs: List[Dict[str, Any]]):
+        _, _, ws_ai = self._open()
+        self._ensure_headers(ws_ai, AI_RECS_HEADERS)
+
         created_at = datetime.now(timezone.utc).isoformat()
         row = [created_at, json.dumps(recs, ensure_ascii=False)]
-        self.append_row(self.AI_RECS_SHEET, row)
+        ws_ai.append_row(row, value_input_option="USER_ENTERED")
 
-    def read_ai_recs_last(self):
-        rows = self.read_rows(self.AI_RECS_SHEET)  # как ты читаешь листы
+
+    def read_ai_recs_last(self) -> Optional[Dict[str, Any]]:
+        _, _, ws_ai = self._open()
+        self._ensure_headers(ws_ai, AI_RECS_HEADERS)
+
+        rows = ws_ai.get_all_values()
         if not rows or len(rows) < 2:
             return None
 
         last = rows[-1]
         try:
-            created_at = last[0]
+            created_at = _norm(last[0] if len(last) > 0 else "")
             recs_json = last[1] if len(last) > 1 else "[]"
             recs = json.loads(recs_json) if recs_json else []
             return {"created_at": created_at, "recs": recs}
