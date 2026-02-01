@@ -887,26 +887,46 @@ ensureAuthGate();
           ${statCard(
             "Прочитано",
             stats.cur.completed,
-            `${stats.prev.year}: ${stats.prev.completed}` // <-- без (+3)
+            `${stats.prev.year}: ${stats.prev.completed}`,
+            stats.cur.completed,
+            stats.prev.completed,
+            null,
+            "",
+            "books"
           )}
-  
+          
           ${statCard(
             "Прочитано страниц",
             stats.cur.pagesRead,
-            `${stats.prev.year}: ${stats.prev.pagesRead}` // <-- без (+3)
+            `${stats.prev.year}: ${stats.prev.pagesRead}`,
+            stats.cur.pagesRead,
+            stats.prev.pagesRead,
+            null,
+            "",
+            "pages"
           )}
-  
+          
           ${statCard(
             "Средний рейтинг",
             stats.cur.avgRating == null ? "—" : stats.cur.avgRating.toFixed(1),
-            `${stats.prev.year}: ${stats.prev.avgRating == null ? "—" : stats.prev.avgRating.toFixed(1)}`
+            `${stats.prev.year}: ${stats.prev.avgRating == null ? "—" : stats.prev.avgRating.toFixed(1)}`,
+            stats.cur.avgRating,
+            stats.prev.avgRating,
+            1,          // decimals
+            "",
+            "rating"
           )}
-  
+          
           ${statCard(
             "Средняя скорость",
             stats.cur.avgSpeed == null ? "—" : `${stats.cur.avgSpeed.toFixed(0)} стр/ч`,
-            `${stats.prev.year}: ${stats.prev.avgSpeed == null ? "—" : `${stats.prev.avgSpeed.toFixed(0)} стр/ч`}`
-          )}
+            `${stats.prev.year}: ${stats.prev.avgSpeed == null ? "—" : `${stats.prev.avgSpeed.toFixed(0)} стр/ч`}`,
+            stats.cur.avgSpeed,
+            stats.prev.avgSpeed,
+            0,          // decimals
+            " стр/ч",   // suffix for delta
+            "speed"
+          )}        
         </div>
   
         <div class="mt-6 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
