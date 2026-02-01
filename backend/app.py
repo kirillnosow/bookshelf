@@ -103,7 +103,8 @@ def protect_api():
 @app.get("/api/sync")
 def api_sync():
     books, progress = repo.read_all()
-    return jsonify({"books": books, "progress": progress})
+    ai = repo.read_ai_recs_last()
+    return jsonify({"books": books, "progress": progress, "ai": ai})
 
 
 @app.post("/api/books/upsert")

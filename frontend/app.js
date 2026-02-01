@@ -1530,59 +1530,62 @@ ensureAuthGate();
   }  
 
   function renderRecommendationsPage() {
-    const reading = readingNow(6);           // [{b, pct}]
-    const planned = recommendPlannedBooks(9); // [{b, score, reason}]
+    const gpt = state.gpt || { list: [], loading: false, error: null };
+  
+    const reading = readingNow(6);
+    const planned = recommendPlannedBooks(9);
   
     return `
-      <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="max-w-6xl mx-auto px-4 py-6">
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
   
-        <div class="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
-          <div class="font-semibold">Продолжить чтение</div>
-          <div class="mt-3 grid gap-2">
-            ${reading.length ? reading.map(({ b, pct }) => `
-              <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <div class="font-medium truncate">${esc(b.title || "")}</div>
-                    <div class="text-sm text-zinc-400 truncate">${esc(b.author || "")}</div>
+          <div class="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+            <div class="font-semibold">Продолжить чтение</div>
+            <div class="mt-3 grid gap-2">
+              ${reading.length ? reading.map(({ b, pct }) => `
+                <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="font-medium truncate">${esc(b.title || "")}</div>
+                      <div class="text-sm text-zinc-400 truncate">${esc(b.author || "")}</div>
+                    </div>
+                    ${pct != null && pct >= 0 ? `<div class="text-xs text-zinc-300">${pct}%</div>` : ``}
                   </div>
-                  ${pct != null && pct >= 0 ? `<div class="text-xs text-zinc-300">${pct}%</div>` : ``}
+  
+                  ${pct != null && pct >= 0 ? `
+                    <div class="mt-2 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                      <div class="h-2 bg-zinc-100" style="width:${pct}%;"></div>
+                    </div>
+                  ` : ``}
                 </div>
-  
-                ${pct != null && pct >= 0 ? `
-                  <div class="mt-2 h-2 rounded-full bg-zinc-800 overflow-hidden">
-                    <div class="h-2 bg-zinc-100" style="width:${pct}%;"></div>
-                  </div>
-                ` : ``}
-              </div>
-            `).join("") : `
-              <div class="text-sm text-zinc-500">
-                Пока нет книг со статусом «Читаю».
-              </div>
-            `}
+              `).join("") : `
+                <div class="text-sm text-zinc-500">
+                  Пока нет книг со статусом «Читаю».
+                </div>
+              `}
+            </div>
           </div>
+  
+          <div class="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+            <div class="font-semibold">Следующее к прочтению</div>
+            <div class="mt-3 grid gap-2">
+              ${planned.length ? planned.map(({ b, reason }) => `
+                <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800">
+                  <div class="font-medium">${esc(b.title || "")}</div>
+                  <div class="text-sm text-zinc-400">${esc(b.author || "")}</div>
+                  ${b.genre ? `<div class="mt-2 text-xs text-zinc-500">${esc(b.genre)}</div>` : ``}
+                  ${reason ? `<div class="mt-2 text-xs text-zinc-300">${esc(reason)}</div>` : ``}
+                </div>
+              `).join("") : `
+                <div class="text-sm text-zinc-500">
+                  Добавь книги в «Хочу прочитать», и я начну предлагать дальше ✨
+                </div>
+              `}
+            </div>
+          </div>
+  
         </div>
   
-        <div class="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
-          <div class="font-semibold">Следующее к прочтению</div>
-          <div class="mt-3 grid gap-2">
-            ${planned.length ? planned.map(({ b, reason }) => `
-              <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800">
-                <div class="font-medium">${esc(b.title || "")}</div>
-                <div class="text-sm text-zinc-400">${esc(b.author || "")}</div>
-                ${b.genre ? `<div class="mt-2 text-xs text-zinc-500">${esc(b.genre)}</div>` : ``}
-                ${reason ? `<div class="mt-2 text-xs text-zinc-300">${esc(reason)}</div>` : ``}
-              </div>
-            `).join("") : `
-              <div class="text-sm text-zinc-500">
-                Добавь книги в «Хочу прочитать», и я начну предлагать дальше ✨
-              </div>
-            `}
-          </div>
-        </div>
-  
-      </div>
-
         <div class="mt-6 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
           <div class="flex items-center justify-between gap-3">
             <div class="font-semibold">AI рекомендации</div>
@@ -1591,15 +1594,15 @@ ensureAuthGate();
               Найти что-то подходящее
             </button>
           </div>
-
-          ${state.gpt.error ? `<div class="mt-3 text-sm text-red-300">${esc(state.gpt.error)}</div>` : ``}
-
+  
+          ${gpt.error ? `<div class="mt-3 text-sm text-red-300">${esc(gpt.error)}</div>` : ``}
+  
           <div class="mt-3">
-            ${state.gpt.loading ? `<div class="text-sm text-zinc-400">Генерирую рекомендации…</div>` : ``}
-
-            ${state.gpt.list.length ? `
+            ${gpt.loading ? `<div class="text-sm text-zinc-400">Генерирую рекомендации…</div>` : ``}
+  
+            ${gpt.list && gpt.list.length ? `
               <div class="grid gap-2">
-                ${state.gpt.list.map((x, i) => `
+                ${gpt.list.map((x, i) => `
                   <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800">
                     <div class="font-medium">${i+1}. ${esc(x.title || "")}</div>
                     <div class="text-sm text-zinc-400">${esc(x.author || "")}</div>
@@ -1615,6 +1618,7 @@ ensureAuthGate();
             `}
           </div>
         </div>
+      </div>
     `;
   }  
 
@@ -2389,9 +2393,11 @@ ensureAuthGate();
       const data = await apiSync();
       state.books = normalizeBooks(data.books || []);
       state.progress = data.progress || [];
+      // подтягиваем сохранённые AI рекомендации
       if (data.ai && Array.isArray(data.ai.recs)) {
+        state.gpt = state.gpt || {};
         state.gpt.list = data.ai.recs;
-      }      
+      }
       state.ui.loading = false;
       render();
     } catch (e) {
