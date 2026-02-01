@@ -169,7 +169,7 @@ class SheetsRepo:
         return idx
 
     def read_all(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        ws_books, ws_progress, ws_ai = self._open()
+        ws_books, ws_progress, _ = self._open()
         self._ensure_headers(ws_books, BOOKS_HEADERS)
         self._ensure_headers(ws_progress, PROGRESS_HEADERS)
 
@@ -260,7 +260,7 @@ class SheetsRepo:
         return None
 
     def upsert_book(self, book: Dict[str, Any]) -> None:
-        ws_books, _ = self._open()
+        ws_books, _, _ = self._open()
         self._ensure_headers(ws_books, BOOKS_HEADERS)
 
         title = _norm(book.get("title"))
@@ -280,6 +280,9 @@ class SheetsRepo:
         image = _norm(book.get("image"))
         recommendation = _norm(book.get("recommendation"))
         c = book.get("criteria") or {}
+
+        if status_cell is None:
+            status_cell = "хочу прочитать"
 
         row = [
             title,
@@ -320,14 +323,14 @@ class SheetsRepo:
                 status_cell = "хочу прочитать"
 
     def delete_book(self, title: str, author: str) -> None:
-        ws_books, _ = self._open()
+        ws_books, _, _ = self._open()
         self._ensure_headers(ws_books, BOOKS_HEADERS)
         row_index = self._find_row_index(ws_books, title, author)
         if row_index is not None:
             ws_books.delete_rows(row_index)
 
     def append_progress(self, item: Dict[str, Any]) -> None:
-        _, ws_progress = self._open()
+        _, ws_progress, _ = self._open()
         self._ensure_headers(ws_progress, PROGRESS_HEADERS)
 
         row = [
