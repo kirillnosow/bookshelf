@@ -1616,6 +1616,7 @@ ensureAuthGate();
                               flex items-center justify-center text-zinc-100"
                         title="Добавить в «Хочу прочитать»"
                         data-ai-add="1"
+                        data-ai-index="${i}"
                         data-title="${esc(x.title || "")}"
                         data-author="${esc(x.author || "")}"
                         data-genre="${esc(x.genre || "")}"
