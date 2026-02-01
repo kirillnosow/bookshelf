@@ -2030,7 +2030,14 @@ ensureAuthGate();
           state.books = normalizeBooks(data.books || []);
           state.progress = data.progress || [];
 
-          // лёгкий визуальный фидбек
+          const idx = Number(btn.getAttribute("data-ai-index"));
+          if (state.gpt && Array.isArray(state.gpt.list) && Number.isFinite(idx)) {
+            state.gpt.list.splice(idx, 1);
+          }
+
+          // перерисовать страницу рекомендаций, чтобы книга исчезла
+          render({ main: true, modals: false, chart: false });
+
           btn.innerHTML = "✓";
           btn.title = "Добавлено";
           btn.classList.add("bg-emerald-900/30", "border-emerald-800");
