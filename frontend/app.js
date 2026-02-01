@@ -1604,8 +1604,28 @@ ensureAuthGate();
               <div class="grid gap-2">
                 ${gpt.list.map((x, i) => `
                   <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800">
-                    <div class="font-medium">${i+1}. ${esc(x.title || "")}</div>
-                    <div class="text-sm text-zinc-400">${esc(x.author || "")}</div>
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <div class="font-medium">${i+1}. ${esc(x.title || "")}</div>
+                        <div class="text-sm text-zinc-400">${esc(x.author || "")}</div>
+                      </div>
+
+                      <button
+                        type="button"
+                        class="shrink-0 h-9 w-9 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800
+                              flex items-center justify-center text-zinc-100"
+                        title="Добавить в «Хочу прочитать»"
+                        data-ai-add="1"
+                        data-title="${esc(x.title || "")}"
+                        data-author="${esc(x.author || "")}"
+                        data-genre="${esc(x.genre || "")}"
+                      >
+                        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                      </button>
+                    </div>
+
                     ${x.genre ? `<div class="mt-1 text-xs text-zinc-500">${esc(x.genre)}</div>` : ``}
                     ${x.why ? `<div class="mt-2 text-xs text-zinc-300">${esc(x.why)}</div>` : ``}
                   </div>
@@ -1927,6 +1947,19 @@ ensureAuthGate();
           const data = await apiDeleteBook(b.title, b.author);
           state.books = normalizeBooks(data.books || []);
           state.progress = data.progress || [];
+
+          // удалить добавленную книгу из AI-списка
+          if (state.gpt && Array.isArray(state.gpt.list)) {
+            const t = title.toLowerCase();
+            const a = author.toLowerCase();
+            state.gpt.list = state.gpt.list.filter(x =>
+              ((x.title || "").trim().toLowerCase() !== t) ||
+              ((x.author || "").trim().toLowerCase() !== a)
+            );
+          }
+
+          // перерисовать текущую страницу (AI-рекомендации), чтобы элемент исчез
+          render({ main: true, modals: false, chart: false });
   
           // данные изменились → перерисуем main + chart
           render({ main: true, modals: true, chart: true });
@@ -1955,6 +1988,67 @@ ensureAuthGate();
         render({ main: true, modals: false, chart: false });
       }      
     };
+
+    // --- AI recs: add book from recommendations ---
+    document.querySelectorAll('button[data-ai-add="1"]').forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const title = (btn.getAttribute("data-title") || "").trim();
+        const author = (btn.getAttribute("data-author") || "").trim();
+        const genre = (btn.getAttribute("data-genre") || "").trim();
+
+        if (!title) return;
+
+        // защита от двойного клика
+        if (btn.dataset.busy === "1") return;
+        btn.dataset.busy = "1";
+        btn.disabled = true;
+        btn.classList.add("opacity-60");
+
+        try {
+          // если уже есть такая книга — просто переключим статус на planned (хочу прочитать)
+          const existing = (state.books || []).find(b =>
+            (b.title || "").trim().toLowerCase() === title.toLowerCase() &&
+            (b.author || "").trim().toLowerCase() === author.toLowerCase()
+          );
+
+          const payload = {
+            title,
+            author,
+            status: "planned",      // backend сам превратит в "хочу прочитать"
+            genre: genre || (existing?.genre || ""),
+            pages: existing?.pages ?? null,
+            image: existing?.image ?? "",
+            year: existing?.year ?? null,
+            finished: existing?.finished ?? "",
+            rating: existing?.rating ?? null,
+            criteria: existing?.criteria ?? {},
+            recommendation: existing?.recommendation ?? 0,
+          };
+
+          const data = await apiUpsertBook(payload);
+          state.books = normalizeBooks(data.books || []);
+          state.progress = data.progress || [];
+
+          // лёгкий визуальный фидбек
+          btn.innerHTML = "✓";
+          btn.title = "Добавлено";
+          btn.classList.add("bg-emerald-900/30", "border-emerald-800");
+        } catch (e) {
+          // вернём кнопку, если упало
+          btn.disabled = false;
+          btn.classList.remove("opacity-60");
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          `;
+          state.ui.error = e?.message || String(e);
+          render({ main: true, modals: false, chart: false });
+        } finally {
+          btn.dataset.busy = "0";
+        }
+      });
+    });
   }
   
   function bindModalHandlers() {
