@@ -863,7 +863,7 @@ ensureAuthGate();
       <div class="max-w-6xl mx-auto px-4 py-6">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="text-2xl font-semibold">Bookshelf</div>
+            <div class="text-2xl font-semibold">Bookshelfly</div>
           </div>
           <div class="flex gap-2">
             <button id="btnAddBook" class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
