@@ -1,6 +1,13 @@
 const API_URL = window.API_URL || "http://localhost:5000";
 console.log("API_URL =", API_URL);
 
+const tg = window.Telegram?.WebApp;
+
+if (tg) {
+  tg.ready();
+  tg.expand();
+}
+
 (() => {
   const state = {
     books: [],
