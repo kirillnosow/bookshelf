@@ -130,7 +130,7 @@ ensureAuthGate();
   const state = {
     books: [],
     progress: [],
-    view: { chartMode: "months", chartYear: null, filterYear: "all", chartMetric: "books" }, // books|pages
+    view: { page: "books", chartMode: "months", chartYear: null, filterYear: "all", chartMetric: "books" }, // page: books|recs
     ui: { loading: true, error: null },
     modals: { addBook: false, editBook: null, addProgress: null },
   };
@@ -663,6 +663,19 @@ ensureAuthGate();
       .join(", ");
   }
 
+  function bookProgressPercent(b) {
+    const pages = Number(b.pages || 0);
+    const current = Number(b.currentPage || 0);
+    if (!Number.isFinite(pages) || pages <= 0) return null;
+    const pct = Math.round((current / pages) * 100);
+    return Math.max(0, Math.min(100, pct));
+  }
+  
+  function genresOfBook(b) {
+    // b.genre у тебя хранит строку вида "жанр1, жанр2, ..."
+    return parseGenres(b.genre || "");
+  }  
+
   function selectGenreMulti(id, label, value = "") {
     // hidden input хранит "жанр1, жанр2, ..."
     const initial = joinGenres(parseGenres(value).map(v => {
@@ -1003,6 +1016,98 @@ ensureAuthGate();
     return { labels, values };
   }  
 
+  // ---------- recommendations ----------
+  function computeGenreAffinity() {
+    const completed = state.books.filter(
+      b => normalizeStatus(b.status) === "completed"
+    );
+
+    const map = new Map(); // genre -> { sum, cnt }
+
+    for (const b of completed) {
+      if (typeof b.rating !== "number") continue;
+      const gs = genresOfBook(b);
+
+      for (const g of gs) {
+        const cur = map.get(g) || { sum: 0, cnt: 0 };
+        cur.sum += b.rating;
+        cur.cnt += 1;
+        map.set(g, cur);
+      }
+    }
+
+    const avg = new Map();
+    for (const [g, v] of map.entries()) {
+      avg.set(g, v.cnt ? v.sum / v.cnt : 0);
+    }
+    return avg;
+  }
+
+  function recommendPlannedBooks(limit = 9) {
+    const planned = state.books.filter(
+      b => normalizeStatus(b.status) === "planned"
+    );
+    if (!planned.length) return [];
+
+    const affinity = computeGenreAffinity();
+    const hasAffinity = affinity.size > 0;
+
+    const scored = planned.map(b => {
+      const gs = genresOfBook(b);
+      let score = 0;
+      let reason = "";
+
+      if (hasAffinity) {
+        const strong = [];
+        for (const g of gs) {
+          const a = affinity.get(g);
+          if (typeof a === "number") {
+            score += a;
+            if (a >= 8) strong.push(g);
+          }
+        }
+        if (strong.length) {
+          reason = `Похоже, тебе заходят жанры: ${strong.slice(0, 2).join(", ")}`;
+        }
+      }
+
+      // бонус за автора
+      let authorBonus = 0;
+      if (hasAffinity && b.author) {
+        const best = Math.max(
+          ...state.books
+            .filter(x =>
+              normalizeStatus(x.status) === "completed" &&
+              x.author === b.author &&
+              typeof x.rating === "number"
+            )
+            .map(x => x.rating),
+          -Infinity
+        );
+        if (best >= 8) authorBonus = 1.2;
+      }
+
+      return { b, score: score + authorBonus, reason };
+    });
+
+    scored.sort((a, b) => (b.score - a.score));
+    return scored.slice(0, limit);
+  }
+
+  function readingNow(limit = 6) {
+    const reading = state.books.filter(
+      b => normalizeStatus(b.status) === "reading"
+    );
+
+    return reading
+      .map(b => ({
+        b,
+        pct: bookProgressPercent(b) ?? -1,
+      }))
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, limit);
+  }
+
   // ---------- api ----------
   async function apiSync() {
     const res = await authedFetch(`${API_URL}/api/sync`);
@@ -1077,21 +1182,40 @@ ensureAuthGate();
       <div class="max-w-6xl mx-auto px-4 py-6">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3">
-            <img
-              src="./icon.png"
-              alt="Bookshelfly"
-              class="h-8 w-8 rounded-lg"
-            />
-            <div class="text-2xl font-semibold">Bookshelfly</div>
+            <img src="./icon.png" alt="Bookshelfly" class="h-8 w-8 rounded-lg" />
+            <div>
+              <div class="text-2xl font-semibold">Bookshelfly</div>
+
+              <div class="mt-2 inline-flex rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+                <button id="navBooks"
+                  class="px-3 py-1.5 text-sm ${state.view.page==="books"
+                    ? "bg-zinc-100 text-zinc-950"
+                    : "text-zinc-200 hover:bg-zinc-900"}">
+                  Книги
+                </button>
+                <button id="navRecs"
+                  class="px-3 py-1.5 text-sm ${state.view.page==="recs"
+                    ? "bg-zinc-100 text-zinc-950"
+                    : "text-zinc-200 hover:bg-zinc-900"}">
+                  Рекомендации
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="flex gap-2">
-            <button id="btnAddBook" class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
-              Добавить книгу
-            </button>
-            <button id="btnAddProgress" class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-700 hover:bg-zinc-700">
-              Добавить прогресс
-            </button>
+            ${state.view.page==="books" ? `
+              <button id="btnAddBook" class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
+                Добавить книгу
+              </button>
+              <button id="btnAddProgress" class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-700 hover:bg-zinc-700">
+                Добавить прогресс
+              </button>
+            ` : `
+              <button id="btnGoBooks" class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-700 hover:bg-zinc-700">
+                На главную
+              </button>
+            `}
           </div>
         </div>
   
@@ -1143,46 +1267,61 @@ ensureAuthGate();
           )}        
         </div>
   
-        <div class="mt-6 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-              <select id="chartMetricSelect"
-                class="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
-                <option value="books" ${state.view.chartMetric==="books"?"selected":""}>Книги</option>
-                <option value="pages" ${state.view.chartMetric==="pages"?"selected":""}>Страницы</option>
+        ${state.view.page === "books" ? `
+          <div class="mt-6 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <select id="chartMetricSelect"
+                  class="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
+                  <option value="books" ${state.view.chartMetric==="books"?"selected":""}>Книги</option>
+                  <option value="pages" ${state.view.chartMetric==="pages"?"selected":""}>Страницы</option>
+                </select>
+              </div>
+        
+              <div class="flex items-center gap-2">
+                <button id="btnChartMonths" class="px-3 py-1.5 rounded-lg border ${state.view.chartMode==="months"
+                  ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                  : "bg-zinc-900 text-zinc-100 border-zinc-700 hover:bg-zinc-800"}">Месяцы</button>
+        
+                <button id="btnChartYears" class="px-3 py-1.5 rounded-lg border ${state.view.chartMode==="years"
+                  ? "bg-zinc-100 text-zinc-950 border-zinc-100"
+                  : "bg-zinc-900 text-zinc-100 border border-zinc-700 hover:bg-zinc-800"}">Годы</button>
+        
+                ${state.view.chartMode==="months" ? `
+                  <select id="chartYearSelect" class="ml-2 px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
+                    <option value="all" ${state.view.chartYear==="all"?"selected":""}>Все годы</option>
+                    ${chartData().availableYears
+                      .map(y => `<option value="${y}" ${String(state.view.chartYear ?? chartData().selectedYear)===String(y)?"selected":""}>${y}</option>`)
+                      .join("")}
+                  </select>
+                ` : ``}
+              </div>
+            </div>
+        
+            <div class="mt-3">
+              <canvas id="chart" height="120"></canvas>
+            </div>
+          </div>
+        
+          <div class="mt-8 flex flex-wrap items-center justify-between gap-3">
+            <div class="text-lg font-semibold">Мои книги</div>
+            <div class="flex items-center gap-3">
+              <div class="text-sm text-zinc-400">${loading ? "Загрузка…" : `${filteredBooks.length} книг`}</div>
+              <select id="booksYearSelect" class="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
+                <option value="all" ${state.view.filterYear==="all"?"selected":""}>Все годы</option>
+                ${availableBookYears
+                  .map(y => `<option value="${y}" ${String(state.view.filterYear)===String(y)?"selected":""}>${y}</option>`)
+                  .join("")}
               </select>
             </div>
-            <div class="flex items-center gap-2">
-              <button id="btnChartMonths" class="px-3 py-1.5 rounded-lg border ${state.view.chartMode==="months" ? "bg-zinc-100 text-zinc-950 border-zinc-100" : "bg-zinc-900 text-zinc-100 border-zinc-700 hover:bg-zinc-800"}">Месяцы</button>
-              <button id="btnChartYears" class="px-3 py-1.5 rounded-lg border ${state.view.chartMode==="years" ? "bg-zinc-100 text-zinc-950 border-zinc-100" : "bg-zinc-900 text-zinc-100 border-zinc-700 hover:bg-zinc-800"}">Годы</button>
-  
-              ${state.view.chartMode==="months" ? `
-                <select id="chartYearSelect" class="ml-2 px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
-                  <option value="all" ${state.view.chartYear==="all"?"selected":""}>Все годы</option>
-                  ${chartData().availableYears.map(y => `<option value="${y}" ${String(state.view.chartYear ?? chartData().selectedYear)===String(y)?"selected":""}>${y}</option>`).join("")}
-                </select>
-              ` : ``}
-            </div>
           </div>
-          <div class="mt-3">
-            <canvas id="chart" height="120"></canvas>
+        
+          <div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            ${filteredBooks.length ? filteredBooks.map(renderBookCard).join("") : emptyState()}
           </div>
-        </div>
-  
-        <div class="mt-8 flex flex-wrap items-center justify-between gap-3">
-          <div class="text-lg font-semibold">Мои книги</div>
-          <div class="flex items-center gap-3">
-            <div class="text-sm text-zinc-400">${loading ? "Загрузка…" : `${filteredBooks.length} книг`}</div>
-            <select id="booksYearSelect" class="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
-              <option value="all" ${state.view.filterYear==="all"?"selected":""}>Все годы</option>
-              ${availableBookYears.map(y => `<option value="${y}" ${String(state.view.filterYear)===String(y)?"selected":""}>${y}</option>`).join("")}
-            </select>
-          </div>
-        </div>
-  
-        <div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          ${filteredBooks.length ? filteredBooks.map(renderBookCard).join("") : emptyState()}
-        </div>
+        ` : `
+          ${renderRecommendationsPage()}
+        `}        
       </div>
     `;
   
@@ -1620,6 +1759,15 @@ ensureAuthGate();
   function bindMainHandlers() {
     const btnAddBook = qs("#btnAddBook");
     const btnAddProgress = qs("#btnAddProgress");
+
+    const navBooks = qs("#navBooks");
+    const navRecs = qs("#navRecs");
+    const btnGoBooks = qs("#btnGoBooks");
+
+    if (navBooks) navBooks.onclick = () => { state.view.page = "books"; render({ main: true, modals: false, chart: true }); };
+    if (navRecs) navRecs.onclick = () => { state.view.page = "recs"; render({ main: true, modals: false, chart: false }); };
+    if (btnGoBooks) btnGoBooks.onclick = () => { state.view.page = "books"; render({ main: true, modals: false, chart: true }); };
+
   
     if (btnAddBook) btnAddBook.onclick = () => {
       state.modals.addBook = true;
