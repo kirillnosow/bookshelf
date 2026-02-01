@@ -133,6 +133,7 @@ ensureAuthGate();
     view: { page: "books", chartMode: "months", chartYear: null, filterYear: "all", chartMetric: "books" }, // page: books|recs
     ui: { loading: true, error: null },
     modals: { addBook: false, editBook: null, addProgress: null },
+    gpt: { list: [], loading: false, error: null },
   };
 
   // ---------- utils ----------
@@ -1571,6 +1572,39 @@ ensureAuthGate();
         </div>
   
       </div>
+
+        <div class="mt-6 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+          <div class="flex items-center justify-between gap-3">
+            <div class="font-semibold">AI рекомендации</div>
+            <button id="btnGptFind"
+              class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
+              Найти что-то подходящее
+            </button>
+          </div>
+
+          ${state.gpt.error ? `<div class="mt-3 text-sm text-red-300">${esc(state.gpt.error)}</div>` : ``}
+
+          <div class="mt-3">
+            ${state.gpt.loading ? `<div class="text-sm text-zinc-400">Генерирую рекомендации…</div>` : ``}
+
+            ${state.gpt.list.length ? `
+              <div class="grid gap-2">
+                ${state.gpt.list.map((x, i) => `
+                  <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800">
+                    <div class="font-medium">${i+1}. ${esc(x.title || "")}</div>
+                    <div class="text-sm text-zinc-400">${esc(x.author || "")}</div>
+                    ${x.genre ? `<div class="mt-1 text-xs text-zinc-500">${esc(x.genre)}</div>` : ``}
+                    ${x.why ? `<div class="mt-2 text-xs text-zinc-300">${esc(x.why)}</div>` : ``}
+                  </div>
+                `).join("")}
+              </div>
+            ` : `
+              <div class="text-sm text-zinc-500">
+                Нажми «Найти что-то подходящее», чтобы получить список книг.
+              </div>
+            `}
+          </div>
+        </div>
     `;
   }  
 
@@ -1888,6 +1922,26 @@ ensureAuthGate();
         }
       });
     });
+
+    const btnGptFind = qs("#btnGptFind");
+    if (btnGptFind) btnGptFind.onclick = async () => {
+      // заглушка — пока без бэка
+      state.gpt.loading = true;
+      state.gpt.error = null;
+      render({ main: true, modals: false, chart: false });
+
+      setTimeout(() => {
+        state.gpt.list = [
+          { title: "Пример 1", author: "Автор 1", genre: "классика", why: "Похоже на твои любимые жанры" },
+          { title: "Пример 2", author: "Автор 2", genre: "научпоп", why: "У тебя высокие оценки по похожим книгам" },
+          { title: "Пример 3", author: "Автор 3", genre: "история", why: "Хорошо ложится на текущие интересы" },
+          { title: "Пример 4", author: "Автор 4", genre: "эссе", why: "Подойдёт под твой темп чтения" },
+          { title: "Пример 5", author: "Автор 5", genre: "философия", why: "Часто тебе заходят такие темы" },
+        ];
+        state.gpt.loading = false;
+        render({ main: true, modals: false, chart: false });
+      }, 600);
+    };
   }
   
   function bindModalHandlers() {
