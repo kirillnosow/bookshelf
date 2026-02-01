@@ -671,7 +671,7 @@ const API_URL = "http://localhost:5000"; // позже поменяем на URL
   }
 
   async function apiUpsertBook(book) {
-    const res = await fetch("${API_URL}/api/books/upsert", {
+    const res = await fetch(`${API_URL}/api/books/upsert`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(book),
@@ -681,7 +681,7 @@ const API_URL = "http://localhost:5000"; // позже поменяем на URL
   }
 
   async function apiDeleteBook(title, author) {
-    const res = await fetch("${API_URL}/api/books/delete", {
+    const res = await fetch(`${API_URL}/api/books/delete`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({title, author}),
@@ -691,7 +691,7 @@ const API_URL = "http://localhost:5000"; // позже поменяем на URL
   }
 
   async function apiAppendProgress(item) {
-    const res = await fetch("${API_URL}/api/progress/append", {
+    const res = await fetch(`${API_URL}/api/progress/append`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(item),
