@@ -422,6 +422,88 @@ ensureAuthGate();
       // первичная отрисовка, если фокус сразу попал
       renderList();
     });
+  }
+
+  function initAuthorSearchWidgets() {
+    document.querySelectorAll('[data-author-search="1"]').forEach(root => {
+      const id = root.getAttribute("data-author-id");
+      const hidden = qs("#" + id);
+      const input = qs("#" + id + "__text");
+      const dd = qs("#" + id + "__dd");
+      const list = qs("#" + id + "__list");
+  
+      if (!hidden || !input || !dd || !list) return;
+  
+      // защита от повторной инициализации при render()
+      if (root.__authorInit) return;
+      root.__authorInit = true;
+  
+      const authors = Array.from(
+        new Set(
+          (state.books || [])
+            .map(b => (b.author || "").trim())
+            .filter(Boolean)
+        )
+      ).sort((a,b) => a.localeCompare(b, "ru"));
+  
+      const norm = (s) => (s || "").toString().trim().toLowerCase();
+  
+      const renderList = () => {
+        const q = norm(input.value);
+  
+        const filtered = authors.filter(a => !q || norm(a).includes(q));
+  
+        if (!filtered.length) {
+          list.innerHTML = `<div class="px-3 py-3 text-sm text-zinc-500">Ничего не найдено</div>`;
+          return;
+        }
+  
+        list.innerHTML = filtered.map(a => `
+          <button type="button"
+            class="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-900"
+            data-author="${esc(a)}">
+            <div class="text-sm text-zinc-100">${esc(a)}</div>
+          </button>
+        `).join("");
+  
+        list.querySelectorAll("button[data-author]").forEach(btn => {
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const a = btn.getAttribute("data-author") || "";
+            hidden.value = a;   // что уйдёт в collectBookFromAdd()
+            input.value = a;    // что видит пользователь
+            close();
+          };
+        });
+      };
+  
+      const open = () => {
+        dd.classList.remove("hidden");
+        renderList();
+      };
+  
+      const close = () => {
+        dd.classList.add("hidden");
+      };
+  
+      input.addEventListener("focus", () => open());
+      input.addEventListener("input", () => {
+        hidden.value = input.value.trim(); // свободный ввод разрешаем
+        open();
+        renderList();
+      });
+  
+      document.addEventListener("click", (e) => {
+        if (!root.contains(e.target)) close();
+      });
+  
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") close();
+      });
+  
+      renderList();
+    });
   }  
 
   function fmtDate(d) {
@@ -1120,10 +1202,11 @@ ensureAuthGate();
     // 3) модалки обновляем отдельно
     if (opts.modals) {
       qs("#modals").innerHTML = modalsHtml;
-      bindModalHandlers();       // <-- добавим ниже
-      initGenreMultiWidgets();   // жанры внутри модалок
-      initBookSearchWidgets();   // поиск книги внутри модалки прогресса
-    }
+      bindModalHandlers();
+      initGenreMultiWidgets();
+      initBookSearchWidgets();
+      initAuthorSearchWidgets();
+    }    
   
     // 4) график трогаем только если нужно
     if (opts.chart) {
@@ -1335,7 +1418,7 @@ ensureAuthGate();
     return `
       <div class="grid sm:grid-cols-2 gap-3">
         ${input("ab_title", "Название")}
-        ${inputAuthorWithHints("ab_author", "Автор")}
+        ${selectAuthorSearch("ab_author", "Автор")}
         ${selectStatus("ab_status", "Статус")}
         ${selectGenreMulti("ab_genre", "Жанр", "")}
         ${input("ab_pages", "Количество страниц", "number")}
@@ -1489,6 +1572,30 @@ ensureAuthGate();
       </div>
     `;
   }
+
+  function selectAuthorSearch(id, label) {
+    return `
+      <div class="authorSearch" data-author-search="1" data-author-id="${esc(id)}">
+        <label class="text-sm text-zinc-300">${esc(label)}</label>
+  
+        <!-- hidden input — сюда уйдёт выбранный автор -->
+        <input id="${esc(id)}" type="hidden" value=""/>
+  
+        <div class="relative mt-1">
+          <input id="${esc(id)}__text" type="text" autocomplete="off"
+            placeholder="Начни вводить автора…"
+            value=""
+            class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-100
+                   focus:outline-none focus:ring-2 focus:ring-zinc-600"/>
+  
+          <div id="${esc(id)}__dd"
+            class="hidden absolute z-50 mt-2 w-full rounded-xl bg-zinc-950 border border-zinc-800 shadow-xl overflow-hidden">
+            <div id="${esc(id)}__list" class="max-h-64 overflow-y-auto p-2"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }  
 
   function closeAnyModal() {
     if (state.modals.addProgress) {
