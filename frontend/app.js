@@ -1067,7 +1067,7 @@ ensureAuthGate();
           }
         }
         if (strong.length) {
-          reason = `Похоже, тебе заходят жанры: ${strong.slice(0, 2).join(", ")}`;
+          reason = `Похоже, тебе нравятся жанры: ${strong.slice(0, 2).join(", ")}`;
         }
       }
 
