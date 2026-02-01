@@ -1,4 +1,4 @@
-const API_URL = "https://bookshelf-2ip1.onrender.com";
+const API_URL = window.API_URL || "http://localhost:5000";
 console.log("API_URL =", API_URL);
 
 (() => {
