@@ -44,31 +44,73 @@
   </div>
 
   <!-- Login modal -->
-<div id="auth-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000000;">
-  <div style="max-width:360px; margin:10vh auto; background:#111; border:1px solid #333; border-radius:14px; padding:18px; color:#fff;">
-    <div style="font-size:18px; font-weight:700; margin-bottom:10px;">Вход</div>
-    <div style="font-size:13px; opacity:.85; margin-bottom:14px;">
-      Только для владельца. Регистрация отключена.
+  <div id="auth-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000000;">
+    <div style="max-width:360px; margin:10vh auto; background:#111; border:1px solid #333; border-radius:14px; padding:20px; color:#fff; text-align:center;">
+
+      <!-- Icon -->
+      <img
+        src="./icon.png"
+        alt="Bookshelf"
+        style="width:72px; height:72px; margin:0 auto 14px auto; display:block; opacity:.95;"
+      />
+
+      <div style="font-size:18px; font-weight:700; margin-bottom:6px;">
+        Вход
+      </div>
+
+      <div style="font-size:13px; opacity:.8; margin-bottom:16px;">
+        Только для владельца. Регистрация отключена.
+      </div>
+
+      <div style="text-align:left;">
+        <label style="display:block; font-size:12px; opacity:.85; margin-bottom:6px;">
+          Логин
+        </label>
+        <input
+          id="auth-login"
+          autocomplete="username"
+          style="width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#0b0b0b; color:#fff; margin-bottom:12px;"
+        />
+
+        <label style="display:block; font-size:12px; opacity:.85; margin-bottom:6px;">
+          Пароль
+        </label>
+        <input
+          id="auth-pass"
+          type="password"
+          autocomplete="current-password"
+          style="width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#0b0b0b; color:#fff; margin-bottom:14px;"
+        />
+      </div>
+
+      <div
+        id="auth-error"
+        style="display:none; color:#ff6b6b; font-size:12px; margin-bottom:12px;"
+      >
+        Неверный логин или пароль
+      </div>
+
+      <button
+        id="auth-submit"
+        style="
+          width:100%;
+          padding:11px;
+          border-radius:10px;
+          border:0;
+          background:#36A2EB;
+          color:#fff;
+          font-weight:700;
+          cursor:pointer;
+          transition: background .15s ease;
+        "
+        onmouseover="this.style.background='#2b8fd8'"
+        onmouseout="this.style.background='#36A2EB'"
+      >
+        Войти
+      </button>
+
     </div>
-
-    <label style="display:block; font-size:12px; opacity:.85; margin-bottom:6px;">Логин</label>
-    <input id="auth-login" autocomplete="username"
-      style="width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#0b0b0b; color:#fff; margin-bottom:10px;" />
-
-    <label style="display:block; font-size:12px; opacity:.85; margin-bottom:6px;">Пароль</label>
-    <input id="auth-pass" type="password" autocomplete="current-password"
-      style="width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#0b0b0b; color:#fff; margin-bottom:12px;" />
-
-    <div id="auth-error" style="display:none; color:#ff6b6b; font-size:12px; margin-bottom:10px;">
-      Неверный логин или пароль
-    </div>
-
-    <button id="auth-submit"
-      style="width:100%; padding:10px; border-radius:10px; border:0; background:#facc15; color:#111; font-weight:700; cursor:pointer;">
-      Войти
-    </button>
   </div>
-</div>
 
   <div id="app" class="min-h-screen"></div>
 
