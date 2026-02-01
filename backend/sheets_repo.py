@@ -11,6 +11,7 @@ import os
 import sys
 
 import json
+from datetime import datetime, timezone
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -32,6 +33,7 @@ def get_credentials(scopes=None):
 
 BOOKS_SHEET_NAME = "Все книги"
 PROGRESS_SHEET_NAME = "Прогресс"
+AI_RECS_SHEET = "AI рекомендации"
 
 # Expected headers from user examples (A..S = 19)
 BOOKS_HEADERS = [
@@ -330,3 +332,22 @@ class SheetsRepo:
             _norm(item.get("endAt")),
         ]
         ws_progress.append_row(row, value_input_option="USER_ENTERED")
+
+    def append_ai_recs(self, recs):
+        created_at = datetime.now(timezone.utc).isoformat()
+        row = [created_at, json.dumps(recs, ensure_ascii=False)]
+        self.append_row(self.AI_RECS_SHEET, row)
+
+    def read_ai_recs_last(self):
+        rows = self.read_rows(self.AI_RECS_SHEET)  # как ты читаешь листы
+        if not rows or len(rows) < 2:
+            return None
+
+        last = rows[-1]
+        try:
+            created_at = last[0]
+            recs_json = last[1] if len(last) > 1 else "[]"
+            recs = json.loads(recs_json) if recs_json else []
+            return {"created_at": created_at, "recs": recs}
+        except Exception:
+            return None

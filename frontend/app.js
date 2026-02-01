@@ -2389,6 +2389,9 @@ ensureAuthGate();
       const data = await apiSync();
       state.books = normalizeBooks(data.books || []);
       state.progress = data.progress || [];
+      if (data.ai && Array.isArray(data.ai.recs)) {
+        state.gpt.list = data.ai.recs;
+      }      
       state.ui.loading = false;
       render();
     } catch (e) {

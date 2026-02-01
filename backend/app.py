@@ -111,7 +111,8 @@ def api_books_upsert():
     book = request.get_json(force=True) or {}
     repo.upsert_book(book)
     books, progress = repo.read_all()
-    return jsonify({"books": books, "progress": progress})
+    ai = repo.read_ai_recs_last()
+    return jsonify({"books": books, "progress": progress, "ai": ai})
 
 
 @app.post("/api/books/delete")
@@ -144,7 +145,7 @@ def api_recs_ai():
         {"title": "451° по Фаренгейту", "author": "Рэй Брэдбери", "genre": "антиутопия", "why": "Логичное продолжение твоих вкусов"},
     ]
 
-    # 👉 тут позже будет запись в Google Sheets
+    repo.append_ai_recs(recs)
     return jsonify({"recs": recs})
 
 import traceback
