@@ -130,7 +130,7 @@ ensureAuthGate();
   const state = {
     books: [],
     progress: [],
-    view: { chartMode: "months", chartYear: null, filterYear: "all" }, // months|years
+    view: { chartMode: "months", chartYear: null, filterYear: "all", chartMetric: "books" }, // books|pages
     ui: { loading: true, error: null },
     modals: { addBook: false, editBook: null, addProgress: null },
   };
@@ -744,6 +744,108 @@ ensureAuthGate();
     return { availableYears, years, yearCounts, monthCounts, selectedYear };
   }
 
+  function progressItems() {
+    // элементы: { date: Date, pages: number }
+    const items = [];
+    for (const p of (state.progress || [])) {
+      const end = parseDate(p.endAt);
+      if (!end) continue;
+  
+      const pages = (Number(p.endPage || 0) - Number(p.startPage || 0));
+      if (!Number.isFinite(pages) || pages <= 0) continue;
+  
+      items.push({ date: end, pages });
+    }
+    return items;
+  }
+  
+  function monthTimelineSumData(items) {
+    if (!items.length) {
+      const now = new Date();
+      const y = now.getFullYear();
+      return { labels: [`Янв ${y}`], values: [0] };
+    }
+  
+    let min = new Date(items[0].date.getFullYear(), items[0].date.getMonth(), 1);
+    let max = new Date(items[0].date.getFullYear(), items[0].date.getMonth(), 1);
+  
+    for (const it of items) {
+      const cur = new Date(it.date.getFullYear(), it.date.getMonth(), 1);
+      if (cur < min) min = cur;
+      if (cur > max) max = cur;
+    }
+  
+    const monthNames = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  
+    const labels = [];
+    const keys = [];
+    const cursor = new Date(min.getFullYear(), min.getMonth(), 1);
+  
+    while (cursor <= max) {
+      const y = cursor.getFullYear();
+      const m = cursor.getMonth();
+      labels.push(`${monthNames[m]} ${y}`);
+      keys.push(`${y}-${String(m + 1).padStart(2, "0")}`);
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+  
+    const sums = new Map(keys.map(k => [k, 0]));
+    for (const it of items) {
+      const k = `${it.date.getFullYear()}-${String(it.date.getMonth() + 1).padStart(2, "0")}`;
+      sums.set(k, (sums.get(k) || 0) + it.pages);
+    }
+  
+    const values = keys.map(k => Math.round(sums.get(k) || 0));
+    return { labels, values };
+  }
+  
+  function chartDataPages() {
+    const items = progressItems();
+    const dates = items.map(x => x.date);
+  
+    if (!dates.length) {
+      const y = new Date().getFullYear();
+      return {
+        availableYears: [y],
+        years: [y],
+        yearSums: [0],
+        monthSums: Array.from({ length: 12 }, () => 0),
+        selectedYear: y,
+        timeline: { labels: [`Янв ${y}`], values: [0] },
+      };
+    }
+  
+    const yearsSet = new Set(dates.map(d => d.getFullYear()));
+    const availableYears = Array.from(yearsSet).sort((a,b)=>a-b);
+  
+    const years = availableYears;
+    const yearSums = years.map(() => 0);
+  
+    for (const it of items) {
+      const yi = years.indexOf(it.date.getFullYear());
+      if (yi >= 0) yearSums[yi] += it.pages;
+    }
+  
+    const selectedYear = state.view.chartYear ?? availableYears[availableYears.length - 1];
+  
+    const monthSums = Array.from({ length: 12 }, () => 0);
+    for (const it of items) {
+      if (selectedYear !== "all" && it.date.getFullYear() !== selectedYear) continue;
+      monthSums[it.date.getMonth()] += it.pages;
+    }
+  
+    const timeline = monthTimelineSumData(items);
+  
+    return {
+      availableYears,
+      years,
+      yearSums: yearSums.map(x => Math.round(x)),
+      monthSums: monthSums.map(x => Math.round(x)),
+      selectedYear,
+      timeline,
+    };
+  }  
+
   function monthTimelineData(dates) {
     if (!dates.length) {
       const now = new Date();
@@ -931,7 +1033,13 @@ ensureAuthGate();
   
         <div class="mt-6 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="font-medium">Прочитано</div>
+            <div class="flex items-center gap-2">
+              <select id="chartMetricSelect"
+                class="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
+                <option value="books" ${state.view.chartMetric==="books"?"selected":""}>Прочитано</option>
+                <option value="pages" ${state.view.chartMetric==="pages"?"selected":""}>Прогресс</option>
+              </select>
+            </div>
             <div class="flex items-center gap-2">
               <button id="btnChartMonths" class="px-3 py-1.5 rounded-lg border ${state.view.chartMode==="months" ? "bg-zinc-100 text-zinc-950 border-zinc-100" : "bg-zinc-900 text-zinc-100 border-zinc-700 hover:bg-zinc-800"}">Месяцы</button>
               <button id="btnChartYears" class="px-3 py-1.5 rounded-lg border ${state.view.chartMode==="years" ? "bg-zinc-100 text-zinc-950 border-zinc-100" : "bg-zinc-900 text-zinc-100 border-zinc-700 hover:bg-zinc-800"}">Годы</button>
@@ -1397,6 +1505,12 @@ ensureAuthGate();
       state.view.chartYear = v === "all" ? "all" : Number(v);
       render({ main: true, modals: false, chart: true });
     };
+
+    const chartMetricSelect = qs("#chartMetricSelect");
+      if (chartMetricSelect) chartMetricSelect.onchange = () => {
+        state.view.chartMetric = chartMetricSelect.value; // books | pages
+        render({ main: true, modals: false, chart: true });
+      };
   
     const booksYearSelect = qs("#booksYearSelect");
     if (booksYearSelect) booksYearSelect.onchange = () => {
@@ -1638,7 +1752,11 @@ ensureAuthGate();
           displayColors: false,
           cornerRadius: 10,
           callbacks: {
-            label: (ctx) => ` ${ctx.parsed.y} книг`,
+            label: (ctx) => {
+              const metric = state.view.chartMetric || "books";
+              const unit = metric === "pages" ? "стр" : "книг";
+              return ` ${ctx.parsed.y} ${unit}`;
+            },
           },
         },
       },
@@ -1683,29 +1801,38 @@ ensureAuthGate();
     const canvas = qs("#chart");
     if (!canvas) return;
   
-    const data = chartData();
+    const metric = state.view.chartMetric || "books"; // books | pages
+    const dataBooks = chartData();
+    const dataPages = chartDataPages();
+    const data = metric === "pages" ? dataPages : dataBooks;
+
     const mode = state.view.chartMode;
-  
+
     let labels = [];
     let values = [];
-  
-    // определяем, когда бар
+
+    // bar = "months + all years"
     const isBarAllYearsMonths = (mode === "months" && state.view.chartYear === "all");
-  
+
     if (mode === "years") {
       labels = data.years.map(String);
-      values = data.yearCounts;
+      values = (metric === "pages") ? data.yearSums : data.yearCounts;
     } else {
       // months
       if (isBarAllYearsMonths) {
-        const completed = state.books.filter(b => normalizeStatus(b.status) === "completed");
-        const dates = completed.map(finishDateForBook).filter(Boolean);
-        const tl = monthTimelineData(dates);  // timeline по месяцам
-        labels = tl.labels;
-        values = tl.values;
+        if (metric === "pages") {
+          labels = data.timeline.labels;
+          values = data.timeline.values;
+        } else {
+          const completed = state.books.filter(b => normalizeStatus(b.status) === "completed");
+          const dates = completed.map(finishDateForBook).filter(Boolean);
+          const tl = monthTimelineData(dates);
+          labels = tl.labels;
+          values = tl.values;
+        }
       } else {
         labels = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
-        values = data.monthCounts;
+        values = (metric === "pages") ? data.monthSums : data.monthCounts;
       }
     }
   
