@@ -1967,7 +1967,7 @@ ensureAuthGate();
         plugins: {
           ...baseChartOptions().plugins,
           // легенду включаем только когда есть прошлый год
-          legend: { display: datasets.length > 1 },
+          legend: { display: false },
           tooltip: {
             ...baseChartOptions().plugins.tooltip,
             callbacks: {
@@ -2002,7 +2002,7 @@ ensureAuthGate();
     };
 
     chart = new Chart(ctx, cfg);
-    
+
   }
 
   // ---------- init ----------
