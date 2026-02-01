@@ -744,6 +744,36 @@ ensureAuthGate();
     return { availableYears, years, yearCounts, monthCounts, selectedYear };
   }
 
+  function monthCountsBooksForYear(y) {
+    const counts = Array.from({ length: 12 }, () => 0);
+  
+    const completed = state.books.filter(b => normalizeStatus(b.status) === "completed");
+    for (const b of completed) {
+      const d = finishDateForBook(b);
+      if (!d) continue;
+      if (d.getFullYear() !== y) continue;
+      counts[d.getMonth()] += 1;
+    }
+    return counts;
+  }
+  
+  function monthSumsPagesForYear(y) {
+    const sums = Array.from({ length: 12 }, () => 0);
+  
+    for (const p of (state.progress || [])) {
+      const end = parseDate(p.endAt);
+      if (!end) continue;
+      if (end.getFullYear() !== y) continue;
+  
+      const pages = (Number(p.endPage || 0) - Number(p.startPage || 0));
+      if (!Number.isFinite(pages) || pages <= 0) continue;
+  
+      sums[end.getMonth()] += pages;
+    }
+  
+    return sums.map(v => Math.round(v));
+  }  
+
   function progressItems() {
     // элементы: { date: Date, pages: number }
     const items = [];
@@ -1755,9 +1785,10 @@ ensureAuthGate();
             label: (ctx) => {
               const metric = state.view.chartMetric || "books";
               const unit = metric === "pages" ? "стр" : "книг";
-              return ` ${ctx.parsed.y} ${unit}`;
+              const name = ctx.dataset?.label ? `${ctx.dataset.label}: ` : "";
+              return ` ${name}${ctx.parsed.y} ${unit}`;
             },
-          },
+          },          
         },
       },
       interaction: {
@@ -1842,35 +1873,89 @@ ensureAuthGate();
     }
   
     const ctx = canvas.getContext("2d");
+
+    // показываем прошлый год только: months + выбран конкретный год (не all)
+    const showPrevYear =
+      (mode === "months") &&
+      (state.view.chartYear !== "all") &&
+      (Number.isFinite(Number(state.view.chartYear ?? data.selectedYear)));
+
+    const selectedYear =
+      state.view.chartYear === "all"
+        ? null
+        : Number(state.view.chartYear ?? data.selectedYear);
+
+    const prevYear = (selectedYear != null) ? (selectedYear - 1) : null;
+
+    let prevValues = null;
+    if (showPrevYear && prevYear != null) {
+      if (metric === "pages") prevValues = monthSumsPagesForYear(prevYear);
+      else prevValues = monthCountsBooksForYear(prevYear);
+    }
   
     // создаём график, а градиенты зададим через afterLayout
+    // предполагается, что выше уже посчитаны:
+    // - labels, values
+    // - isBarAllYearsMonths
+    // - metric ("books"|"pages")
+    // - showPrevYear (boolean)
+    // - selectedYear (number|null)
+    // - prevYear (number|null)
+    // - prevValues (array|null)
+
+    const unitLabel = (metric === "pages") ? "стр" : "книг";
+
+    const mainDataset = {
+      // подпись — год, если выбран конкретный, иначе общая
+      label: selectedYear ? String(selectedYear) : (metric === "pages" ? "Страницы" : "Книги"),
+      data: values,
+
+      // line only
+      tension: 0.35,
+      cubicInterpolationMode: "monotone",
+      fill: !isBarAllYearsMonths,      // заливка только на линии
+      borderWidth: isBarAllYearsMonths ? 0 : 2,
+
+      pointRadius: isBarAllYearsMonths ? 0 : 3,
+      pointHoverRadius: isBarAllYearsMonths ? 0 : 5,
+      pointBorderWidth: isBarAllYearsMonths ? 0 : 2,
+      pointBackgroundColor: "rgba(24,24,27,0.95)",
+      pointBorderColor: "rgba(255,255,255,0.85)",
+
+      // bar only
+      borderRadius: isBarAllYearsMonths ? 10 : 0,
+      barThickness: isBarAllYearsMonths ? 14 : undefined,
+      maxBarThickness: isBarAllYearsMonths ? 18 : undefined,
+    };
+
+    const datasets = [mainDataset];
+
+    // ✅ прошлый год — серой полупрозрачной линией (только в months + выбран год)
+    if (showPrevYear && Array.isArray(prevValues)) {
+      datasets.push({
+        label: String(prevYear),
+        data: prevValues,
+
+        // всегда линия, даже если основной — bar (на всякий случай)
+        type: "line",
+        tension: 0.35,
+        cubicInterpolationMode: "monotone",
+        fill: false,
+        borderWidth: 2,
+
+        borderColor: "rgba(161,161,170,0.45)", // серый полупрозрачный
+        backgroundColor: "rgba(0,0,0,0)",
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        borderDash: [4, 4], // убери, если хочешь сплошную
+      });
+    }
+
     const cfg = {
       type: isBarAllYearsMonths ? "bar" : "line",
       data: {
         labels,
-        datasets: [
-          {
-            label: "Книг",
-            data: values,
-  
-            // line only
-            tension: 0.35,
-            cubicInterpolationMode: "monotone",
-            fill: !isBarAllYearsMonths,      // заливка только на линии
-            borderWidth: isBarAllYearsMonths ? 0 : 2,
-  
-            pointRadius: isBarAllYearsMonths ? 0 : 3,
-            pointHoverRadius: isBarAllYearsMonths ? 0 : 5,
-            pointBorderWidth: isBarAllYearsMonths ? 0 : 2,
-            pointBackgroundColor: "rgba(24,24,27,0.95)",
-            pointBorderColor: "rgba(255,255,255,0.85)",
-  
-            // bar only
-            borderRadius: isBarAllYearsMonths ? 10 : 0,
-            barThickness: isBarAllYearsMonths ? 14 : undefined,
-            maxBarThickness: isBarAllYearsMonths ? 18 : undefined,
-          },
-        ],
+        datasets,
       },
       options: {
         ...baseChartOptions(),
@@ -1879,6 +1964,20 @@ ensureAuthGate();
           duration: isBarAllYearsMonths ? 750 : 900,
           easing: isBarAllYearsMonths ? "easeOutCubic" : "easeOutQuart",
         },
+        plugins: {
+          ...baseChartOptions().plugins,
+          // легенду включаем только когда есть прошлый год
+          legend: { display: datasets.length > 1 },
+          tooltip: {
+            ...baseChartOptions().plugins.tooltip,
+            callbacks: {
+              label: (ctx) => {
+                const name = ctx.dataset?.label ? `${ctx.dataset.label}: ` : "";
+                return ` ${name}${ctx.parsed.y} ${unitLabel}`;
+              },
+            },
+          },
+        },
       },
       plugins: [
         {
@@ -1886,9 +1985,10 @@ ensureAuthGate();
           afterLayout(c) {
             const { ctx, chartArea } = c;
             if (!chartArea) return;
-  
+
+            // красим/градиентим только ОСНОВНОЙ датасет, серый оставляем серым
             const ds = c.data.datasets[0];
-  
+
             if (isBarAllYearsMonths) {
               ds.backgroundColor = makeBarGradient(ctx, chartArea);
               ds.hoverBackgroundColor = "rgba(255,255,255,0.95)";
@@ -1900,9 +2000,10 @@ ensureAuthGate();
         },
       ],
     };
-  
+
     chart = new Chart(ctx, cfg);
-  }  
+    
+  }
 
   // ---------- init ----------
   async function init() {
