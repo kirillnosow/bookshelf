@@ -71,6 +71,11 @@ def require_basic_auth(fn):
 def health():
     return jsonify({"ok": True})
 
+@app.get("/api/auth/check")
+def auth_check():
+    # если дошли сюда — значит Basic Auth прошёл
+    return jsonify({"ok": True})
+
 @app.before_request
 def protect_api():
     if request.path.startswith("/api/"):

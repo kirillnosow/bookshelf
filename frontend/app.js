@@ -29,14 +29,12 @@ function showAuthModal(show, withError = false) {
 }
 
 async function verifyAuth(login, pass) {
-  // проверяем через /health (без auth) НЕ подойдёт — он открыт.
-  // поэтому проверяем через /api/sync (или любой защищенный endpoint) но "мягко"
   const token = b64encode(`${login}:${pass}`);
-  const res = await authedFetch(`${API_URL}/api/sync`, {
+  const res = await fetch(`${API_URL}/api/auth/check`, {
     method: "GET",
     headers: { Authorization: `Basic ${token}` },
   });
-  return res.status !== 401; // 200/4xx кроме 401 считаем ок (если у sync GET)
+  return res.ok; // только 200 = успех
 }
 
 function ensureAuthGate() {
