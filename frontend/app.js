@@ -8,6 +8,17 @@ if (tg) {
   tg.expand();
 }
 
+["auth-login", "auth-pass"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        document.getElementById("auth-submit")?.click();
+      }
+    });
+  }
+});
+
 // --- Auth helpers (Basic Auth) ---
 const AUTH_KEY = "bookshelf_basic_auth"; // sessionStorage key
 
@@ -24,8 +35,15 @@ function showAuthModal(show, withError = false) {
   const modal = document.getElementById("auth-modal");
   const err = document.getElementById("auth-error");
   if (!modal) return;
+
   modal.style.display = show ? "block" : "none";
   if (err) err.style.display = withError ? "block" : "none";
+
+  if (show) {
+    setTimeout(() => {
+      document.getElementById("auth-login")?.focus();
+    }, 50);
+  }
 }
 
 async function verifyAuth(login, pass) {
