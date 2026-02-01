@@ -862,9 +862,15 @@ ensureAuthGate();
     const mainHtml = `
       <div class="max-w-6xl mx-auto px-4 py-6">
         <div class="flex items-center justify-between gap-3">
-          <div>
+          <div class="flex items-center gap-3">
+            <img
+              src="./icon.png"
+              alt="Bookshelfly"
+              class="h-8 w-8 rounded-lg"
+            />
             <div class="text-2xl font-semibold">Bookshelfly</div>
           </div>
+
           <div class="flex gap-2">
             <button id="btnAddBook" class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
               Добавить книгу
