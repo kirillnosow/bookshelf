@@ -1036,8 +1036,8 @@ ensureAuthGate();
             <div class="flex items-center gap-2">
               <select id="chartMetricSelect"
                 class="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100">
-                <option value="books" ${state.view.chartMetric==="books"?"selected":""}>Прочитано</option>
-                <option value="pages" ${state.view.chartMetric==="pages"?"selected":""}>Прогресс</option>
+                <option value="books" ${state.view.chartMetric==="books"?"selected":""}>Книги</option>
+                <option value="pages" ${state.view.chartMetric==="pages"?"selected":""}>Страницы</option>
               </select>
             </div>
             <div class="flex items-center gap-2">
