@@ -1146,6 +1146,16 @@ ensureAuthGate();
     return res.json();
   }
 
+  async function apiAiRecs() {
+    const res = await authedFetch(`${API_URL}/api/recs/ai`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) throw new Error("Не удалось получить AI рекомендации");
+    return res.json(); // { recs }
+  }  
+
   // ---------- render ----------
   let chart = null;
 
@@ -1930,17 +1940,16 @@ ensureAuthGate();
       state.gpt.error = null;
       render({ main: true, modals: false, chart: false });
 
-      setTimeout(() => {
-        state.gpt.list = [
-          { title: "Пример 1", author: "Автор 1", genre: "классика", why: "Похоже на твои любимые жанры" },
-          { title: "Пример 2", author: "Автор 2", genre: "научпоп", why: "У тебя высокие оценки по похожим книгам" },
-          { title: "Пример 3", author: "Автор 3", genre: "история", why: "Хорошо ложится на текущие интересы" },
-          { title: "Пример 4", author: "Автор 4", genre: "эссе", why: "Подойдёт под твой темп чтения" },
-          { title: "Пример 5", author: "Автор 5", genre: "философия", why: "Часто тебе заходят такие темы" },
-        ];
+      try {
+        const data = await apiAiRecs(); // { recs }
+        state.gpt.list = data.recs || [];
         state.gpt.loading = false;
         render({ main: true, modals: false, chart: false });
-      }, 600);
+      } catch (e) {
+        state.gpt.loading = false;
+        state.gpt.error = e.message || String(e);
+        render({ main: true, modals: false, chart: false });
+      }      
     };
   }
   
