@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import base64
+from functools import wraps
+
 from pathlib import Path
 import sys
 from flask import Flask, render_template, request, jsonify
@@ -24,10 +27,70 @@ CORS(
 )
 repo = SheetsRepo(sheet_id=SHEET_ID)
 
+APP_LOGIN = os.getenv("APP_LOGIN", "")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+
+def _unauthorized():
+    # Browser/clients can show a login prompt, but we'll also use it for our frontend modal
+    return (
+        jsonify({"error": "unauthorized"}),
+        401,
+        {"WWW-Authenticate": 'Basic realm="Bookshelf"'},
+    )
+
+def require_basic_auth(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        # allow CORS preflight
+        if request.method == "OPTIONS":
+            return ("", 204)
+
+        # if not set — fail closed in prod, but you can choose to allow locally
+        if not APP_LOGIN or not APP_PASSWORD:
+            return _unauthorized()
+
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Basic "):
+            return _unauthorized()
+
+        try:
+            b64 = auth.split(" ", 1)[1].strip()
+            raw = base64.b64decode(b64).decode("utf-8")
+            login, password = raw.split(":", 1)
+        except Exception:
+            return _unauthorized()
+
+        if login != APP_LOGIN or password != APP_PASSWORD:
+            return _unauthorized()
+
+        return fn(*args, **kwargs)
+
+    return wrapper
+
 @app.get("/health")
 def health():
     return jsonify({"ok": True})
 
+@app.before_request
+def protect_api():
+    if request.path.startswith("/api/"):
+        # re-use the same logic via a tiny inline check
+        if request.method == "OPTIONS":
+            return ("", 204)
+
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Basic "):
+            return _unauthorized()
+
+        try:
+            b64 = auth.split(" ", 1)[1].strip()
+            raw = base64.b64decode(b64).decode("utf-8")
+            login, password = raw.split(":", 1)
+        except Exception:
+            return _unauthorized()
+
+        if login != APP_LOGIN or password != APP_PASSWORD:
+            return _unauthorized()
 
 @app.get("/api/sync")
 def api_sync():

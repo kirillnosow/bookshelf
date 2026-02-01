@@ -8,6 +8,94 @@ if (tg) {
   tg.expand();
 }
 
+// --- Auth helpers (Basic Auth) ---
+const AUTH_KEY = "bookshelf_basic_auth"; // sessionStorage key
+
+function b64encode(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+function getAuthHeader() {
+  const raw = sessionStorage.getItem(AUTH_KEY);
+  return raw ? { Authorization: `Basic ${raw}` } : null;
+}
+
+function showAuthModal(show, withError = false) {
+  const modal = document.getElementById("auth-modal");
+  const err = document.getElementById("auth-error");
+  if (!modal) return;
+  modal.style.display = show ? "block" : "none";
+  if (err) err.style.display = withError ? "block" : "none";
+}
+
+async function verifyAuth(login, pass) {
+  // проверяем через /health (без auth) НЕ подойдёт — он открыт.
+  // поэтому проверяем через /api/sync (или любой защищенный endpoint) но "мягко"
+  const token = b64encode(`${login}:${pass}`);
+  const res = await authedFetch(`${API_URL}/api/sync`, {
+    method: "GET",
+    headers: { Authorization: `Basic ${token}` },
+  });
+  return res.status !== 401; // 200/4xx кроме 401 считаем ок (если у sync GET)
+}
+
+function ensureAuthGate() {
+  // показываем модалку, если нет данных
+  if (!sessionStorage.getItem(AUTH_KEY)) {
+    showAuthModal(true, false);
+  }
+
+  const btn = document.getElementById("auth-submit");
+  if (btn && !btn.dataset.bound) {
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", async () => {
+      const login = document.getElementById("auth-login")?.value?.trim() || "";
+      const pass = document.getElementById("auth-pass")?.value || "";
+
+      if (!login || !pass) {
+        showAuthModal(true, true);
+        return;
+      }
+
+      try {
+        const ok = await verifyAuth(login, pass);
+        if (!ok) {
+          showAuthModal(true, true);
+          return;
+        }
+        sessionStorage.setItem(AUTH_KEY, b64encode(`${login}:${pass}`));
+        showAuthModal(false, false);
+        // можно сразу перезапустить инициализацию, если нужно:
+        // window.location.reload();
+      } catch (e) {
+        showAuthModal(true, true);
+      }
+    });
+  }
+}
+
+async function authedFetch(url, options = {}) {
+  const hdr = getAuthHeader();
+  if (!hdr) {
+    showAuthModal(true, false);
+    throw new Error("Not authenticated");
+  }
+
+  const headers = { ...(options.headers || {}), ...hdr };
+  const res = await authedFetch(url, { ...options, headers });
+
+  if (res.status === 401) {
+    // сбрасываем, показываем модалку
+    sessionStorage.removeItem(AUTH_KEY);
+    showAuthModal(true, true);
+    throw new Error("Unauthorized");
+  }
+  return res;
+}
+
+// Call once on load (before any API requests)
+ensureAuthGate();
+
 (() => {
   const state = {
     books: [],
@@ -673,13 +761,13 @@ if (tg) {
 
   // ---------- api ----------
   async function apiSync() {
-    const res = await fetch(`${API_URL}/api/sync`);
+    const res = await authedFetch(`${API_URL}/api/sync`);
     if (!res.ok) throw new Error(`sync failed: ${res.status}`);
     return res.json();
   }
 
   async function apiUpsertBook(book) {
-    const res = await fetch(`${API_URL}/api/books/upsert`, {
+    const res = await authedFetch(`${API_URL}/api/books/upsert`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(book),
@@ -689,7 +777,7 @@ if (tg) {
   }
 
   async function apiDeleteBook(title, author) {
-    const res = await fetch(`${API_URL}/api/books/delete`, {
+    const res = await authedFetch(`${API_URL}/api/books/delete`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({title, author}),
@@ -699,7 +787,7 @@ if (tg) {
   }
 
   async function apiAppendProgress(item) {
-    const res = await fetch(`${API_URL}/api/progress/append`, {
+    const res = await authedFetch(`${API_URL}/api/progress/append`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(item),
@@ -1658,7 +1746,13 @@ if (tg) {
     }
   });
   
-  init();
+  (async () => {
+    if (!sessionStorage.getItem(AUTH_KEY)) {
+      showAuthModal(true, false);
+      return; // не стартуем приложение
+    }
+    await init();
+  })();  
 })();
 
 window.addEventListener("load", () => {
@@ -1675,7 +1769,7 @@ window.addEventListener("load", () => {
 
 async function waitForReady() {
   try {
-    await fetch(`${API_URL}/api/sync`);
+    await authedFetch(`${API_URL}/api/sync`);
   } catch (_) {}
 
   const loader = document.getElementById("app-loader");
