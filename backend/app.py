@@ -13,9 +13,6 @@ from sheets_repo import SheetsRepo
 
 from dotenv import load_dotenv
 
-print("AUTH_LOGIN =", repr(os.getenv("AUTH_LOGIN")))
-print("AUTH_PASSWORD =", repr(os.getenv("AUTH_PASSWORD")))
-
 load_dotenv()
 
 SHEET_ID = os.environ.get("SPREADSHEET_ID") or os.environ.get("SHEET_ID") or "1EbxX-duNfkOw6EWHMYmrTurKLbL0gdOlhYY5eC2YEKQ"
@@ -30,8 +27,11 @@ CORS(
 )
 repo = SheetsRepo(sheet_id=SHEET_ID)
 
-APP_LOGIN = os.getenv("APP_LOGIN", "")
-APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+APP_LOGIN = os.getenv("AUTH_LOGIN", "")
+APP_PASSWORD = os.getenv("AUTH_PASSWORD", "")
+
+print("APP_LOGIN =", repr(APP_LOGIN))
+print("APP_PASSWORD =", repr(APP_PASSWORD))
 
 def _unauthorized():
     # Browser/clients can show a login prompt, but we'll also use it for our frontend modal
