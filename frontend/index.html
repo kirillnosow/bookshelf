@@ -3,10 +3,13 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <script src="https://telegram.org/js/telegram-web-app.js?59"></script>
+
   <title>Bookshelfly</title>
 
-  <!-- ВАЖНО: стили лоадера inline, чтобы работали сразу -->
+  <!-- Telegram WebApp -->
+  <script src="https://telegram.org/js/telegram-web-app.js?59"></script>
+
+  <!-- Loader styles inline (must render immediately) -->
   <style>
     #app-loader {
       position: fixed;
@@ -30,94 +33,155 @@
       50%  { transform: scale(1.05); opacity: 1; }
       100% { transform: scale(0.92); opacity: 0.75; }
     }
+
+    /* Auth modal */
+    #auth-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 1000000;
+    }
+    #auth-modal .auth-card {
+      max-width: 360px;
+      margin: 10vh auto;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 14px;
+      padding: 20px;
+      color: #fff;
+      text-align: center;
+    }
+    #auth-modal .auth-icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 14px auto;
+      display: block;
+      opacity: .95;
+    }
+    #auth-modal .auth-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    #auth-modal .auth-subtitle {
+      font-size: 13px;
+      opacity: .8;
+      margin-bottom: 16px;
+    }
+    #auth-modal .auth-label {
+      display: block;
+      font-size: 12px;
+      opacity: .85;
+      margin-bottom: 6px;
+      text-align: left;
+    }
+    #auth-modal .auth-input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #0b0b0b;
+      color: #fff;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    #auth-modal .auth-input:focus {
+      border-color: rgba(54,162,235,.8);
+      box-shadow: 0 0 0 3px rgba(54,162,235,.2);
+    }
+    #auth-error {
+      display: none;
+      color: #ff6b6b;
+      font-size: 12px;
+      margin: 2px 0 12px 0;
+      text-align: center;
+    }
+    #auth-submit {
+      width: 100%;
+      padding: 11px;
+      border-radius: 10px;
+      border: 0;
+      background: #36A2EB;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s ease, opacity .15s ease;
+    }
+    #auth-submit:hover { background: #2b8fd8; }
+    #auth-submit:active { opacity: .9; }
   </style>
 
-  <!-- можно оставить tailwind, но он не нужен для лоадера -->
+  <!-- libs -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 
 <body class="bg-zinc-950 text-zinc-100">
-  <!-- Лоадер должен быть ПЕРВЫМ в body -->
+  <!-- Loader must be first -->
   <div id="app-loader">
     <img src="./icon.png" alt="Bookshelf loading" />
   </div>
 
   <!-- Login modal -->
-  <div id="auth-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000000;">
-    <div style="max-width:360px; margin:10vh auto; background:#111; border:1px solid #333; border-radius:14px; padding:20px; color:#fff; text-align:center;">
-
+  <div id="auth-modal" aria-hidden="true">
+    <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <!-- Icon -->
       <img
         src="./icon.png"
         alt="Bookshelf"
-        style="width:72px; height:72px; margin:0 auto 14px auto; display:block; opacity:.95;"
+        class="auth-icon"
       />
 
-      <div style="font-size:18px; font-weight:700; margin-bottom:6px;">
-        Вход
-      </div>
+      <div id="auth-title" class="auth-title">Вход</div>
+      <div class="auth-subtitle">Только для владельца. Регистрация отключена.</div>
 
-      <div style="font-size:13px; opacity:.8; margin-bottom:16px;">
-        Только для владельца. Регистрация отключена.
-      </div>
-
-      <div style="text-align:left;">
-        <label style="display:block; font-size:12px; opacity:.85; margin-bottom:6px;">
-          Логин
-        </label>
+      <!-- ✅ FORM: Enter will submit -->
+      <form id="auth-form" autocomplete="on">
+        <label class="auth-label" for="auth-login">Логин</label>
         <input
           id="auth-login"
+          class="auth-input"
           autocomplete="username"
-          style="width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#0b0b0b; color:#fff; margin-bottom:12px;"
+          inputmode="text"
         />
 
-        <label style="display:block; font-size:12px; opacity:.85; margin-bottom:6px;">
-          Пароль
-        </label>
+        <label class="auth-label" for="auth-pass">Пароль</label>
         <input
           id="auth-pass"
+          class="auth-input"
           type="password"
           autocomplete="current-password"
-          style="width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#0b0b0b; color:#fff; margin-bottom:14px;"
         />
-      </div>
 
-      <div
-        id="auth-error"
-        style="display:none; color:#ff6b6b; font-size:12px; margin-bottom:12px;"
-      >
-        Неверный логин или пароль
-      </div>
+        <div id="auth-error">Неверный логин или пароль</div>
 
-      <button
-        id="auth-submit"
-        style="
-          width:100%;
-          padding:11px;
-          border-radius:10px;
-          border:0;
-          background:#36A2EB;
-          color:#fff;
-          font-weight:700;
-          cursor:pointer;
-          transition: background .15s ease;
-        "
-        onmouseover="this.style.background='#2b8fd8'"
-        onmouseout="this.style.background='#36A2EB'"
-      >
-        Войти
-      </button>
-
+        <button id="auth-submit" type="submit">Войти</button>
+      </form>
     </div>
   </div>
 
   <div id="app" class="min-h-screen"></div>
 
   <script>
+    // API endpoint for frontend
     window.API_URL = "https://bookshelf-2ip1.onrender.com";
+
+    // ✅ Make Enter trigger the same logic as the button click,
+    // without duplicating auth code.
+    window.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("auth-form");
+      const btn = document.getElementById("auth-submit");
+      if (form && btn) {
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          btn.click();
+        });
+      }
+    });
   </script>
+
   <script src="./app.js?v=2"></script>
 </body>
 </html>

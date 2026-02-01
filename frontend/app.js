@@ -59,12 +59,23 @@ async function verifyAuth(login, pass) {
 }
 
 function ensureAuthGate() {
-  // показываем модалку, если нет данных
   if (!sessionStorage.getItem(AUTH_KEY)) {
     showAuthModal(true, false);
   }
 
   const btn = document.getElementById("auth-submit");
+  const form = document.getElementById("auth-form");
+
+  // ✅ Enter в форме
+  if (form && !form.dataset.bound) {
+    form.dataset.bound = "1";
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      btn?.click();
+    });
+  }
+
+  // ✅ Кнопка "Войти"
   if (btn && !btn.dataset.bound) {
     btn.dataset.bound = "1";
     btn.addEventListener("click", async () => {
@@ -82,12 +93,11 @@ function ensureAuthGate() {
           showAuthModal(true, true);
           return;
         }
+
         sessionStorage.setItem(AUTH_KEY, b64encode(`${login}:${pass}`));
         showAuthModal(false, false);
         window.location.reload();
-        // можно сразу перезапустить инициализацию, если нужно:
-        // window.location.reload();
-      } catch (e) {
+      } catch {
         showAuthModal(true, true);
       }
     });
