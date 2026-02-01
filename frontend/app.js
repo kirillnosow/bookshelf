@@ -23,7 +23,10 @@ if (tg) {
 const AUTH_KEY = "bookshelf_basic_auth"; // sessionStorage key
 
 function b64encode(str) {
-  return btoa(unescape(encodeURIComponent(str)));
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
 }
 
 function getAuthHeader() {
@@ -81,6 +84,7 @@ function ensureAuthGate() {
         }
         sessionStorage.setItem(AUTH_KEY, b64encode(`${login}:${pass}`));
         showAuthModal(false, false);
+        window.location.reload();
         // можно сразу перезапустить инициализацию, если нужно:
         // window.location.reload();
       } catch (e) {
@@ -98,14 +102,14 @@ async function authedFetch(url, options = {}) {
   }
 
   const headers = { ...(options.headers || {}), ...hdr };
-  const res = await authedFetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers }); // <-- ВАЖНО: fetch
 
   if (res.status === 401) {
-    // сбрасываем, показываем модалку
     sessionStorage.removeItem(AUTH_KEY);
     showAuthModal(true, true);
     throw new Error("Unauthorized");
   }
+
   return res;
 }
 
@@ -1783,11 +1787,7 @@ window.addEventListener("load", () => {
   }, 300);
 });
 
-async function waitForReady() {
-  try {
-    await authedFetch(`${API_URL}/api/sync`);
-  } catch (_) {}
-
+function waitForReady() {
   const loader = document.getElementById("app-loader");
   if (!loader) return;
 
@@ -1795,8 +1795,6 @@ async function waitForReady() {
   loader.style.transition = "opacity 0.3s ease";
   setTimeout(() => loader.remove(), 300);
 }
-
-waitForReady();
 
 function hideLoader() {
   const loader = document.getElementById("app-loader");
