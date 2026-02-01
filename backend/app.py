@@ -13,6 +13,9 @@ from sheets_repo import SheetsRepo
 
 from dotenv import load_dotenv
 
+print("AUTH_LOGIN =", repr(os.getenv("AUTH_LOGIN")))
+print("AUTH_PASSWORD =", repr(os.getenv("AUTH_PASSWORD")))
+
 load_dotenv()
 
 SHEET_ID = os.environ.get("SPREADSHEET_ID") or os.environ.get("SHEET_ID") or "1EbxX-duNfkOw6EWHMYmrTurKLbL0gdOlhYY5eC2YEKQ"
