@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import sys
 from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS 
 
 from sheets_repo import SheetsRepo
 
@@ -15,7 +15,13 @@ load_dotenv()
 SHEET_ID = os.environ.get("SPREADSHEET_ID") or os.environ.get("SHEET_ID") or "1EbxX-duNfkOw6EWHMYmrTurKLbL0gdOlhYY5eC2YEKQ"
 
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    resources={r"/api/*": {"origins": [
+        "https://bookshelfly.netlify.app",
+        "http://localhost:8000"
+    ]}}
+)
 repo = SheetsRepo(sheet_id=SHEET_ID)
 
 @app.get("/health")
