@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import time
 
 from ai_profile import build_profile
-from yandex_gpt_client import generate_recommendations
+from yandex_gpt_client import generate_book_recommendations
 
 load_dotenv()
 
@@ -153,7 +153,7 @@ def api_ai_recs():
     books, _ = repo.read_all()
 
     profile = build_profile(books)
-    recs = generate_recommendations(profile)
+    recs = generate_book_recommendations(profile_text=profile)
 
     repo.append_ai_recs(recs)
 
