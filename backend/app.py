@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 import time
 
-from ai_profile import build_profile
+from ai_profile import build_profile_text
 from yandex_gpt_client import generate_book_recommendations
 
 load_dotenv()
