@@ -149,12 +149,36 @@ def api_progress_append():
     return jsonify({"books": books, "progress": progress})
 
 @app.post("/api/recs/ai")
-def api_ai_recs():
+def api_recs_ai():
+    # 1. Читаем все книги пользователя
     books, _ = repo.read_all()
 
-    profile = build_profile(books)
+    # 2. Собираем "уже есть у пользователя" (прочитано / добавлено)
+    owned = {
+        f"{b['title'].strip().lower()}|{b['author'].strip().lower()}"
+        for b in books
+        if b.get("title") and b.get("author")
+    }
+
+    # 3. Собираем "уже рекомендовалось раньше"
+    already_recommended = repo.get_already_recommended_set(limit=500)
+
+    # 4. Итоговый blacklist (🚨 ЭТО И ЕСТЬ ПУНКТ 2.1)
+    excluded = owned | already_recommended
+
+    # 5. Строим профиль с учётом запрещённых книг
+    profile = build_profile_text(books, excluded)
+
+    # 6. Получаем рекомендации от GPT
     recs = generate_book_recommendations(profile_text=profile)
 
+    # 7. Железный пост-фильтр (на всякий случай)
+    recs = [
+        r for r in recs
+        if f"{r['title'].lower()}|{r['author'].lower()}" not in excluded
+    ]
+
+    # 8. Сохраняем результат в Google Sheet
     repo.append_ai_recs(recs)
 
     return jsonify({"recs": recs})

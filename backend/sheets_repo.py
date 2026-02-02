@@ -368,3 +368,46 @@ class SheetsRepo:
             recs = []
 
         return {"created_at": created_at, "recs": recs}
+
+
+    def read_ai_recs_history(self, limit: int = 200) -> List[Dict[str, Any]]:
+        """
+        Returns list of records (latest first):
+        [{"created_at": "...", "recs": [...]}, ...]
+        """
+        _, _, ws_ai = self._open()
+        self._ensure_headers(ws_ai, AI_RECS_HEADERS)
+
+        values = ws_ai.get_all_values()
+        if len(values) < 2:
+            return []
+
+        # rows: skip header
+        rows = values[1:]
+        if limit and len(rows) > limit:
+            rows = rows[-limit:]
+
+        out: List[Dict[str, Any]] = []
+        for row in rows[::-1]:  # latest first
+            created_at = row[0] if len(row) > 0 else None
+            recs_json = row[1] if len(row) > 1 else "[]"
+            try:
+                recs = json.loads(recs_json) if recs_json else []
+            except Exception:
+                recs = []
+            out.append({"created_at": created_at, "recs": recs})
+        return out
+
+    def get_already_recommended_set(self, limit: int = 200) -> set[str]:
+        """
+        Set of normalized 'title|author' that were ever recommended.
+        """
+        history = self.read_ai_recs_history(limit=limit)
+        s: set[str] = set()
+        for h in history:
+            for r in (h.get("recs") or []):
+                title = _norm(r.get("title"))
+                author = _norm(r.get("author"))
+                if title and author:
+                    s.add(f"{title.lower()}|{author.lower()}")
+        return s
