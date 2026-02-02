@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 
 import time
 
+from ai_profile import build_profile
+from yandex_gpt_client import generate_recommendations
+
 load_dotenv()
 
 SHEET_ID = os.environ.get("SPREADSHEET_ID") or os.environ.get("SHEET_ID") or "1EbxX-duNfkOw6EWHMYmrTurKLbL0gdOlhYY5eC2YEKQ"
@@ -146,19 +149,14 @@ def api_progress_append():
     return jsonify({"books": books, "progress": progress})
 
 @app.post("/api/recs/ai")
-def api_recs_ai():
-    payload = request.get_json(force=True) or {}
+def api_ai_recs():
+    books, _ = repo.read_all()
 
-    # временная заглушка — имитируем ответ ИИ
-    recs = [
-        {"title": "1984", "author": "Джордж Оруэлл", "genre": "антиутопия", "why": "Высокие оценки у похожих книг"},
-        {"title": "Чума", "author": "Альбер Камю", "genre": "классика", "why": "Пересекается с твоими любимыми жанрами"},
-        {"title": "Sapiens", "author": "Юваль Ной Харари", "genre": "научпоп", "why": "Ты часто выбираешь нон-фикшн"},
-        {"title": "Миф о Сизифе", "author": "Альбер Камю", "genre": "философия", "why": "Подходит под твой темп и интересы"},
-        {"title": "451° по Фаренгейту", "author": "Рэй Брэдбери", "genre": "антиутопия", "why": "Логичное продолжение твоих вкусов"},
-    ]
+    profile = build_profile(books)
+    recs = generate_recommendations(profile)
 
     repo.append_ai_recs(recs)
+
     return jsonify({"recs": recs})
 
 @app.get("/api/recs/ai")
