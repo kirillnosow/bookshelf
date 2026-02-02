@@ -1958,27 +1958,26 @@ ensureAuthGate();
         const b = state.books.find(x => x.id === id);
         if (!b) return;
         if (!confirm(`Удалить книгу “${b.title}”?`)) return;
+
+        const title = (b.title || "").trim();
+        const author = (b.author || "").trim();
   
         try {
-          const data = await apiDeleteBook(b.title, b.author);
+          const title = (b.title || "").trim();
+          const author = (b.author || "").trim();
+        
+          const data = await apiDeleteBook(title, author);
           state.books = normalizeBooks(data.books || []);
           state.progress = data.progress || [];
-
-          // удалить добавленную книгу из AI-списка
+        
+          // если есть AI-список — пересчитаем (чтобы удалённая книга снова могла появиться)
           if (state.gpt && Array.isArray(state.gpt.list)) {
-            const t = title.toLowerCase();
-            const a = author.toLowerCase();
-            state.gpt.list = state.gpt.list.filter(x =>
-              ((x.title || "").trim().toLowerCase() !== t) ||
-              ((x.author || "").trim().toLowerCase() !== a)
-            );
+            state.gpt.list = filterAiByMyBooks(state.gpt.list);
           }
-
-          // перерисовать текущую страницу (AI-рекомендации), чтобы элемент исчез
-          render({ main: true, modals: false, chart: false });
-  
-          // данные изменились → перерисуем main + chart
-          render({ main: true, modals: true, chart: true });
+        
+          const shouldRenderChart = (state.view.page === "books");
+          render({ main: true, modals: true, chart: shouldRenderChart });
+        
         } catch (e) {
           state.ui.error = e.message || String(e);
           render({ main: true, modals: true, chart: false });
