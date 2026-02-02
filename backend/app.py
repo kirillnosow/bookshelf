@@ -13,6 +13,8 @@ from sheets_repo import SheetsRepo
 
 from dotenv import load_dotenv
 
+import time
+
 load_dotenv()
 
 SHEET_ID = os.environ.get("SPREADSHEET_ID") or os.environ.get("SHEET_ID") or "1EbxX-duNfkOw6EWHMYmrTurKLbL0gdOlhYY5eC2YEKQ"
@@ -26,6 +28,9 @@ CORS(
     ]}}
 )
 repo = SheetsRepo(sheet_id=SHEET_ID)
+
+SYNC_CACHE = {"ts": 0.0, "data": None}
+SYNC_TTL = int(os.getenv("SYNC_TTL", "10"))  # 10 секунд по умолчанию
 
 APP_LOGIN = os.getenv("AUTH_LOGIN", "")
 APP_PASSWORD = os.getenv("AUTH_PASSWORD", "")
@@ -102,9 +107,16 @@ def protect_api():
 
 @app.get("/api/sync")
 def api_sync():
+    now = time.time()
+    if SYNC_CACHE["data"] is not None and (now - SYNC_CACHE["ts"]) < SYNC_TTL:
+        return jsonify(SYNC_CACHE["data"])
+
     books, progress = repo.read_all()
-    ai = repo.read_ai_recs_last()
-    return jsonify({"books": books, "progress": progress, "ai": ai})
+    data = {"books": books, "progress": progress}
+
+    SYNC_CACHE["ts"] = now
+    SYNC_CACHE["data"] = data
+    return jsonify(data)
 
 
 @app.post("/api/books/upsert")
