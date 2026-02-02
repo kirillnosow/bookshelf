@@ -136,6 +136,15 @@ ensureAuthGate();
     gpt: { loading:false, error:null, list:[], lastAt:null }
   };
 
+  function normKey(title, author) {
+    return `${(title || "").trim().toLowerCase()}||${(author || "").trim().toLowerCase()}`;
+  }
+  
+  function filterAiByMyBooks(aiList) {
+    const my = new Set((state.books || []).map(b => normKey(b.title, b.author)));
+    return (aiList || []).filter(x => !my.has(normKey(x.title, x.author)));
+  }  
+
   // ---------- utils ----------
   const qs = (sel) => document.querySelector(sel);
 
@@ -2036,10 +2045,8 @@ ensureAuthGate();
           state.books = normalizeBooks(data.books || []);
           state.progress = data.progress || [];
 
-          const idx = Number(btn.getAttribute("data-ai-index"));
-          if (state.gpt && Array.isArray(state.gpt.list) && Number.isFinite(idx)) {
-            state.gpt.list.splice(idx, 1);
-          }
+          state.gpt.list = filterAiByMyBooks(state.gpt.list);
+          render({ main: true, modals: false, chart: false });
 
           // перерисовать страницу рекомендаций, чтобы книга исчезла
           render({ main: true, modals: false, chart: false });
@@ -2505,7 +2512,8 @@ ensureAuthGate();
       // ⬇️ подгружаем последние AI рекомендации
       try {
         const ai = await apiGetAiRecs();
-        state.gpt.list = Array.isArray(ai?.recs) ? ai.recs : [];
+        const raw = Array.isArray(ai?.recs) ? ai.recs : [];
+        state.gpt.list = filterAiByMyBooks(raw);
         state.gpt.lastAt = ai?.created_at || null;
       } catch (e) {
         // не критично: просто оставим пусто
