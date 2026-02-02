@@ -28,7 +28,7 @@ def _post_completion(
     folder_id: str,
     messages: List[Dict[str, str]],
     temperature: float = 0.4,
-    max_tokens: int = 1200,
+    max_tokens: int = 600,
     timeout: int = 60,
 ) -> str:
     """
