@@ -351,19 +351,20 @@ class SheetsRepo:
         ws_ai.append_row(row, value_input_option="USER_ENTERED")
 
 
-    def read_ai_recs_last(self) -> Optional[Dict[str, Any]]:
+    def read_ai_recs_last(self):
         _, _, ws_ai = self._open()
-        self._ensure_headers(ws_ai, AI_RECS_HEADERS)
 
-        rows = ws_ai.get_all_values()
-        if not rows or len(rows) < 2:
+        values = ws_ai.get_all_values()
+        if len(values) < 2:
             return None
 
-        last = rows[-1]
+        last = values[-1]
+        created_at = last[0] if len(last) > 0 else None
+        recs_json = last[1] if len(last) > 1 else "[]"
+
         try:
-            created_at = _norm(last[0] if len(last) > 0 else "")
-            recs_json = last[1] if len(last) > 1 else "[]"
             recs = json.loads(recs_json) if recs_json else []
-            return {"created_at": created_at, "recs": recs}
         except Exception:
-            return None
+            recs = []
+
+        return {"created_at": created_at, "recs": recs}

@@ -133,7 +133,7 @@ ensureAuthGate();
     view: { page: "books", chartMode: "months", chartYear: null, filterYear: "all", chartMetric: "books" }, // page: books|recs
     ui: { loading: true, error: null },
     modals: { addBook: false, editBook: null, addProgress: null },
-    gpt: { list: [], loading: false, error: null },
+    gpt: { loading:false, error:null, list:[], lastAt:null }
   };
 
   // ---------- utils ----------
@@ -1154,6 +1154,12 @@ ensureAuthGate();
     });
     if (!res.ok) throw new Error("Не удалось получить AI рекомендации");
     return res.json(); // { recs }
+  }  
+
+  async function apiGetAiRecs() {
+    const res = await authedFetch(`${API_URL}/api/recs/ai`);
+    if (!res.ok) throw new Error(`get ai recs failed: ${res.status}`);
+    return res.json(); // {created_at, recs}
   }  
 
   // ---------- render ----------
@@ -2495,11 +2501,17 @@ ensureAuthGate();
       const data = await apiSync();
       state.books = normalizeBooks(data.books || []);
       state.progress = data.progress || [];
-      // подтягиваем сохранённые AI рекомендации
-      if (data.ai && Array.isArray(data.ai.recs)) {
-        state.gpt = state.gpt || {};
-        state.gpt.list = data.ai.recs;
+
+      // ⬇️ подгружаем последние AI рекомендации
+      try {
+        const ai = await apiGetAiRecs();
+        state.gpt.list = Array.isArray(ai?.recs) ? ai.recs : [];
+        state.gpt.lastAt = ai?.created_at || null;
+      } catch (e) {
+        // не критично: просто оставим пусто
+        state.gpt.list = state.gpt.list || [];
       }
+
       state.ui.loading = false;
       render();
     } catch (e) {

@@ -161,6 +161,12 @@ def api_recs_ai():
     repo.append_ai_recs(recs)
     return jsonify({"recs": recs})
 
+@app.get("/api/recs/ai")
+def api_recs_ai_get():
+    last = repo.read_ai_recs_last()
+    return jsonify(last or {"created_at": None, "recs": []})
+
+
 import traceback
 
 @app.errorhandler(Exception)
