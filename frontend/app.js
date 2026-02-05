@@ -132,7 +132,7 @@ ensureAuthGate();
     progress: [],
     view: { page: "books", chartMode: "months", chartYear: null, filterYear: "all", chartMetric: "books" }, // page: books|recs
     ui: { loading: true, error: null },
-    modals: { addBook: false, editBook: null, addProgress: null },
+    modals: { addBook: false, editBook: null, addProgress: null, gamificationHelp: false },
     gpt: { loading:false, error:null, list:[], lastAt:null },
     streak: {
       streak: 0,
@@ -1275,27 +1275,26 @@ ensureAuthGate();
 
           <div class="flex items-center gap-2">
             ${state.view.page==="books" ? `
-              <span
-                title="Опыт (XP): книги + дни чтения"
-                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl
-                      bg-zinc-900/60 border border-zinc-800 text-sm text-zinc-100"
+              <button
+                id="btnGamificationHelp"
+                class="inline-flex items-center gap-2"
+                type="button"
+                title="Нажми, чтобы узнать правила"
               >
-                <span>⭐</span>
-                <span class="font-semibold">${Number(state.xp?.xp_total ?? 0)}</span>
-              </span>
+                <!-- XP -->
+                <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl
+                            bg-zinc-900/60 border border-zinc-800 text-sm text-zinc-100">
+                  <span>⭐</span>
+                  <span class="font-semibold">${Number(state.xp?.xp_total ?? 0)}</span>
+                </span>
 
-              <span
-                title="${state.streak?.icon === 'fire'
-                  ? 'Сегодня есть чтение'
-                  : 'Сегодня чтения нет'}"
-                class="inline-flex items-center gap-1.5
-                      px-3 py-2 rounded-xl
-                      bg-zinc-900/60 border border-zinc-800
-                      text-sm text-zinc-100"
-              >
-                <span>${state.streak?.icon === "fire" ? "🔥" : "🕯️"}</span>
-                <span class="font-semibold">${Number(state.streak?.streak ?? 0)}</span>
-              </span>
+                <!-- Streak -->
+                <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl
+                            bg-zinc-900/60 border border-zinc-800 text-sm text-zinc-100">
+                  <span>${state.streak?.icon === "fire" ? "🔥" : "🕯️"}</span>
+                  <span class="font-semibold">${Number(state.streak?.streak ?? 0)}</span>
+                </span>
+              </button>
 
               <button id="btnAddBook"
                 class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
@@ -1426,6 +1425,7 @@ ensureAuthGate();
       ${renderAddBookModal()}
       ${renderEditBookModal()}
       ${renderAddProgressModal()}
+      ${state.modals.gamificationHelp ? renderGamificationHelpModal() : ""}
     `;
   
     // 2) обновляем MAIN только если нужно
@@ -1764,6 +1764,74 @@ ensureAuthGate();
     return modalShell("addProgressModal", "Добавить прогресс", addProgressFormHtml(), "Сохранить", "closeAddProgress");
   }
 
+  function renderGamificationHelpModal() {
+    const xpTotal = Number(state.xp?.xp_total ?? 0);
+    const xpBooks = Number(state.xp?.xp_books ?? 0);
+    const xpDays  = Number(state.xp?.xp_days ?? 0);
+    const daysCnt = Number(state.xp?.days_count ?? 0);
+  
+    const streakN = Number(state.streak?.streak ?? 0);
+    const streakIcon = state.streak?.icon === "fire" ? "🔥" : "🕯️";
+  
+    return `
+    <div class="fixed inset-0 z-[1000001] bg-black/70 flex items-end sm:items-center justify-center p-3">
+      <div class="w-full max-w-lg rounded-2xl bg-zinc-950 border border-zinc-800 shadow-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div class="font-semibold">XP и стрики</div>
+          <button id="btnCloseGamificationHelp" class="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800">
+            Закрыть
+          </button>
+        </div>
+  
+        <div class="p-4 space-y-4 text-sm text-zinc-100">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800">
+              <span>⭐</span><span class="font-semibold">${xpTotal}</span>
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800">
+              <span>${streakIcon}</span><span class="font-semibold">${streakN}</span>
+            </span>
+          </div>
+  
+          <div class="rounded-xl bg-zinc-900/40 border border-zinc-800 p-3">
+            <div class="font-semibold mb-2">Как работают стрики</div>
+            <ul class="list-disc pl-5 space-y-1 text-zinc-200">
+              <li><b>🔥</b> — сегодня добавлен прогресс (есть чтение сегодня).</li>
+              <li><b>🕯️</b> — сегодня прогресса нет, но вчера был: стрик “на паузе” и показывает прошлое значение.</li>
+              <li>Если последняя запись была <b>позавчера или раньше</b> — стрик сбрасывается в <b>0</b>.</li>
+            </ul>
+          </div>
+  
+          <div class="rounded-xl bg-zinc-900/40 border border-zinc-800 p-3">
+            <div class="font-semibold mb-2">Как начисляется XP</div>
+            <ul class="list-disc pl-5 space-y-1 text-zinc-200">
+              <li><b>За прочитанные книги</b> (статус “Прочитано”): XP зависит от количества страниц.</li>
+              <li><b>За дни чтения</b>: +10 XP за каждый день, когда есть хотя бы одна запись прогресса (макс. 1 раз в день).</li>
+            </ul>
+            <div class="mt-3 text-zinc-200">
+              <div class="font-semibold mb-1">Тариф по страницам</div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="rounded-lg border border-zinc-800 p-2 bg-zinc-950/40">1–300 стр — <b>100 XP</b></div>
+                <div class="rounded-lg border border-zinc-800 p-2 bg-zinc-950/40">301–500 стр — <b>180 XP</b></div>
+                <div class="rounded-lg border border-zinc-800 p-2 bg-zinc-950/40">501–800 стр — <b>300 XP</b></div>
+                <div class="rounded-lg border border-zinc-800 p-2 bg-zinc-950/40">801+ стр — <b>450 XP</b></div>
+              </div>
+            </div>
+          </div>
+  
+          <div class="rounded-xl bg-zinc-900/40 border border-zinc-800 p-3">
+            <div class="font-semibold mb-2">Твой разбор</div>
+            <div class="text-zinc-200 space-y-1">
+              <div>XP за книги: <b>${xpBooks}</b></div>
+              <div>XP за дни чтения: <b>${xpDays}</b> (дней: <b>${daysCnt}</b>)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    `;
+  }  
+
   function modalShell(id, title, bodyHtml, primaryText, closeId) {
     return `
       <div class="fixed inset-0 bg-black/70 flex items-center justify-center px-4 z-50">
@@ -1978,6 +2046,12 @@ ensureAuthGate();
   }  
 
   function closeAnyModal() {
+    if (state.modals.gamificationHelp) {
+      state.modals.gamificationHelp = false;
+      render({ main: false, modals: true, chart: false });
+      return;
+    }
+
     if (state.modals.addProgress) {
       state.modals.addProgress = null;
       render();
@@ -1994,12 +2068,20 @@ ensureAuthGate();
       state.modals.addBook = false;
       render();
       return;
-    }
+    }    
   }  
   
   function bindMainHandlers() {
     const btnAddBook = qs("#btnAddBook");
     const btnAddProgress = qs("#btnAddProgress");
+
+    const btnGamificationHelp = qs("#btnGamificationHelp");
+      if (btnGamificationHelp) {
+        btnGamificationHelp.onclick = () => {
+          state.modals.gamificationHelp = true;
+          render({ main: false, modals: true, chart: false });
+        };
+      } 
 
     const navBooks = qs("#navBooks");
     const navRecs = qs("#navRecs");
@@ -2179,6 +2261,14 @@ ensureAuthGate();
         }
       });
     });
+
+    const btnCloseGamificationHelp = qs("#btnCloseGamificationHelp");
+      if (btnCloseGamificationHelp) {
+        btnCloseGamificationHelp.onclick = () => {
+          state.modals.gamificationHelp = false;
+          render({ main: false, modals: true, chart: false });
+        };
+      }
   }
   
   function bindModalHandlers() {
