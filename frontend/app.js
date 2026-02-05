@@ -2261,14 +2261,6 @@ ensureAuthGate();
         }
       });
     });
-
-    const btnCloseGamificationHelp = qs("#btnCloseGamificationHelp");
-      if (btnCloseGamificationHelp) {
-        btnCloseGamificationHelp.onclick = () => {
-          state.modals.gamificationHelp = false;
-          render({ main: false, modals: true, chart: false });
-        };
-      }
   }
   
   function bindModalHandlers() {
@@ -2295,6 +2287,14 @@ ensureAuthGate();
   
     const progSubmit = qs("#addProgressModal_submit");
     if (progSubmit) progSubmit.onclick = onSubmitAddProgress;
+
+    const btnCloseGamificationHelp = qs("#btnCloseGamificationHelp");
+    if (btnCloseGamificationHelp) {
+      btnCloseGamificationHelp.onclick = () => {
+        state.modals.gamificationHelp = false;
+        render({ main: false, modals: true, chart: false });
+      };
+    }
   }  
 
   function wireClose(id, fn) {
