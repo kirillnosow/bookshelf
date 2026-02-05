@@ -398,6 +398,16 @@ ensureAuthGate();
             hidden.value = title;     // вот что уйдёт в onSubmitAddProgress()
             input.value = title;      // что видит пользователь
             close();
+
+            if (id === "ap_book") {
+              const last = lastEndPageForBook(title);
+
+              const startEl = qs("#ap_startPage");
+              const endEl = qs("#ap_endPage");
+
+              if (startEl) startEl.value = String(last);
+              if (endEl) endEl.value = String(last);
+            }
           };
         });
       };
@@ -1548,6 +1558,19 @@ ensureAuthGate();
     const d = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function lastEndPageForBook(title) {
+    const t = (title || "").trim();
+    if (!t) return 0;
+  
+    let best = 0;
+    for (const p of (state.progress || [])) {
+      if (((p.book || "").trim()) !== t) continue;
+      const v = Number(p.endPage || 0);
+      if (Number.isFinite(v) && v > best) best = v;
+    }
+    return best;
   }  
 
   function renderRecommendationsPage() {
