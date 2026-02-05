@@ -91,6 +91,9 @@ def _parse_dt(s: str):
     if not t:
         return None
 
+    # ✅ "+0300" -> "+03:00"
+    t = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", t)
+
     # 1) "YYYY-MM-DD HH:mm"
     for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
         try:
@@ -184,6 +187,15 @@ def _xp_for_pages(pages: int) -> int:
         return 300
     return 450
 
+def _norm_status(s: str) -> str:
+    v = (s or "").strip().lower()
+    if v in ("прочитано", "completed", "complited"):
+        return "completed"
+    if v in ("читаю", "reading"):
+        return "reading"
+    if v in ("хочу прочитать", "запланировано", "planned"):
+        return "planned"
+    return "planned"
 
 def compute_xp(books_rows, progress_rows):
     """
@@ -194,7 +206,7 @@ def compute_xp(books_rows, progress_rows):
     # 1) XP за книги
     xp_books = 0
     for b in (books_rows or []):
-        if (b.get("status") or "").strip().lower() == "completed":
+        if _norm_status(b.get("status")) == "completed":
             pages = int(b.get("pages") or 0)
             xp_books += _xp_for_pages(pages)
 
