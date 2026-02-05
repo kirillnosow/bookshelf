@@ -133,7 +133,8 @@ ensureAuthGate();
     view: { page: "books", chartMode: "months", chartYear: null, filterYear: "all", chartMetric: "books" }, // page: books|recs
     ui: { loading: true, error: null },
     modals: { addBook: false, editBook: null, addProgress: null },
-    gpt: { loading:false, error:null, list:[], lastAt:null }
+    gpt: { loading:false, error:null, list:[], lastAt:null },
+    streak: { streak: 0, longest: 0, last_day: null, active: false, today: null },
   };
 
   function normKey(title, author) {
@@ -1149,6 +1150,12 @@ ensureAuthGate();
     return res.json();
   }
 
+  async function apiStreak() {
+    const res = await authedFetch(`${API_URL}/api/streak`);
+    if (!res.ok) throw new Error(`streak failed: ${res.status}`);
+    return res.json(); // {streak, longest, last_day, active, today}
+  }  
+
   async function apiUpsertBook(book) {
     const res = await authedFetch(`${API_URL}/api/books/upsert`, {
       method: "POST",
@@ -1272,6 +1279,14 @@ ensureAuthGate();
         ${error ? `<div class="mt-4 p-3 rounded-xl bg-red-950/40 border border-red-900 text-red-200">${esc(error)}</div>` : ""}
   
         <div class="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-3">
+          ${statCard(
+            "Стрик",
+            `${state.streak?.active ? "🔥" : "🕯️"} ${state.streak?.streak ?? 0}`,
+            state.streak?.active
+              ? (state.streak?.last_day === state.streak?.today ? "Сегодня ✅" : "Вчера ✅ (сегодня ещё можно)")
+              : "Сгорел — начни заново",
+            null, null, null, "", "books"
+          )}
           ${statCard(
             "Прочитано",
             stats.cur.completed,
@@ -2576,6 +2591,13 @@ ensureAuthGate();
         // не критично: просто оставим пусто
         state.gpt.list = state.gpt.list || [];
       }
+
+      // подгружаем данные по стрикам
+      try {
+        state.streak = await apiStreak();
+      } catch {
+        // не критично
+      }      
 
       state.ui.loading = false;
       render();

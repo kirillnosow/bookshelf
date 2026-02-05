@@ -14,6 +14,10 @@ from sheets_repo import SheetsRepo
 from dotenv import load_dotenv
 
 import time
+from datetime import datetime, date
+from zoneinfo import ZoneInfo
+
+import traceback
 
 from ai_profile import build_profile_text
 from yandex_gpt_client import generate_book_recommendations
@@ -77,6 +81,102 @@ def require_basic_auth(fn):
         return fn(*args, **kwargs)
 
     return wrapper
+
+TZ = ZoneInfo(os.getenv("APP_TZ", "Europe/Moscow"))
+
+def _parse_dt(s: str):
+    if not s:
+        return None
+    t = str(s).strip()
+    if not t:
+        return None
+
+    # 1) "YYYY-MM-DD HH:mm"
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(t, fmt)
+        except ValueError:
+            pass
+
+    # 2) "DD.MM.YYYY HH:mm" / "DD.MM.YYYY"
+    for fmt in ("%d.%m.%Y %H:%M", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(t, fmt)
+        except ValueError:
+            pass
+
+    # 3) ISO (или "YYYY-MM-DDTHH:mm:ss", или "YYYY-MM-DD HH:mm:ss")
+    try:
+        iso = t.replace(" ", "T")
+        return datetime.fromisoformat(iso)
+    except Exception:
+        return None
+
+
+def compute_streak(progress_rows):
+    # progress_rows: [{startAt, endAt, ...}, ...]  как в repo.read_all() :contentReference[oaicite:3]{index=3}
+    days = set()
+    for p in (progress_rows or []):
+        dt = _parse_dt(p.get("endAt")) or _parse_dt(p.get("startAt"))
+        if not dt:
+            continue
+        # даты в таблице у тебя локальные, без TZ → просто берём date()
+        days.add(dt.date())
+
+    today = datetime.now(TZ).date()
+
+    if not days:
+        return {
+            "streak": 0,
+            "longest": 0,
+            "last_day": None,
+            "active": False,
+            "today": today.isoformat(),
+        }
+
+    last_day = max(days)
+    gap = (today - last_day).days
+
+    # если пропущен минимум 1 день "между" (последнее чтение <= позавчера) — стрик сгорает
+    if gap > 1:
+        return {
+            "streak": 0,
+            "longest": _longest_streak(days),
+            "last_day": last_day.isoformat(),
+            "active": False,
+            "today": today.isoformat(),
+        }
+
+    # считаем подряд назад от last_day
+    cur = last_day
+    streak = 0
+    while cur in days:
+        streak += 1
+        cur = date.fromordinal(cur.toordinal() - 1)
+
+    # active = стрик ещё не сгорел (last_day сегодня или вчера)
+    return {
+        "streak": streak,
+        "longest": _longest_streak(days),
+        "last_day": last_day.isoformat(),
+        "active": True,
+        "today": today.isoformat(),
+    }
+
+
+def _longest_streak(days_set: set[date]) -> int:
+    if not days_set:
+        return 0
+    days = sorted(days_set)
+    best = 1
+    cur = 1
+    for i in range(1, len(days)):
+        if (days[i] - days[i - 1]).days == 1:
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 1
+    return best
 
 @app.get("/health")
 def health():
@@ -188,9 +288,6 @@ def api_recs_ai_get():
     last = repo.read_ai_recs_last()
     return jsonify(last or {"created_at": None, "recs": []})
 
-
-import traceback
-
 @app.errorhandler(Exception)
 def handle_exception(e):
     print("EXCEPTION:", repr(e))
@@ -204,3 +301,8 @@ if __name__ == "__main__":
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
 
     app.run(host="0.0.0.0", port=port, debug=debug)
+
+@app.get("/api/streak")
+def api_streak():
+    _, progress = repo.read_all()
+    return jsonify(compute_streak(progress))
