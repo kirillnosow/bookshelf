@@ -112,7 +112,6 @@ def _parse_dt(s: str):
     except Exception:
         return None
 
-
 def compute_streak(progress_rows):
     days = set()
     for p in (progress_rows or []):
@@ -173,6 +172,51 @@ def compute_streak(progress_rows):
             "today": today.isoformat(),
         }
 
+def _xp_for_pages(pages: int) -> int:
+    # если pages не заполнено — даём "среднюю" награду
+    if not pages or pages <= 0:
+        return 180
+    if pages <= 300:
+        return 100
+    if pages <= 500:
+        return 180
+    if pages <= 800:
+        return 300
+    return 450
+
+
+def compute_xp(books_rows, progress_rows):
+    """
+    XP = XP за прочитанные книги (по объёму) + XP за дни чтения (10 XP за день)
+    - книга прочитана, если status == 'completed'
+    - день чтения: есть хотя бы одна запись прогресса в этот день (берём endAt, если пусто — startAt)
+    """
+    # 1) XP за книги
+    xp_books = 0
+    for b in (books_rows or []):
+        if (b.get("status") or "").strip().lower() == "completed":
+            pages = int(b.get("pages") or 0)
+            xp_books += _xp_for_pages(pages)
+
+    # 2) XP за дни
+    days = set()
+    for p in (progress_rows or []):
+        dt = _parse_dt(p.get("endAt")) or _parse_dt(p.get("startAt"))
+        if not dt:
+            continue
+        days.add(dt.date())
+
+    xp_days = 10 * len(days)
+    xp_total = xp_books + xp_days
+
+    return {
+        "xp_total": xp_total,
+        "xp_books": xp_books,
+        "xp_days": xp_days,
+        "days_count": len(days),
+        "today": datetime.now(APP_TZ).date().isoformat(),
+    }
+
 def _longest_streak(days_set: set[date]) -> int:
     if not days_set:
         return 0
@@ -230,6 +274,10 @@ def api_sync():
     SYNC_CACHE["data"] = data
     return jsonify(data)
 
+@app.get("/api/xp")
+def api_xp():
+    books, progress = repo.read_all()
+    return jsonify(compute_xp(books, progress))
 
 @app.post("/api/books/upsert")
 def api_books_upsert():

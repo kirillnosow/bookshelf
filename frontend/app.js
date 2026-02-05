@@ -140,7 +140,8 @@ ensureAuthGate();
       today_has_reading: false,
       last_day: null,
       today: null,
-    },    
+    },
+    xp: { xp_total: 0, xp_books: 0, xp_days: 0, days_count: 0, today: null },
   };
 
   function normKey(title, author) {
@@ -1162,6 +1163,12 @@ ensureAuthGate();
     return res.json(); // {streak, longest, last_day, active, today}
   }  
 
+  async function apiXp() {
+    const res = await authedFetch(`${API_URL}/api/xp`);
+    if (!res.ok) throw new Error(`xp failed: ${res.status}`);
+    return res.json(); // {xp_total, xp_books, xp_days, ...}
+  }  
+
   async function apiUpsertBook(book) {
     const res = await authedFetch(`${API_URL}/api/books/upsert`, {
       method: "POST",
@@ -1268,6 +1275,15 @@ ensureAuthGate();
 
           <div class="flex items-center gap-2">
             ${state.view.page==="books" ? `
+              <span
+                title="Опыт (XP): книги + дни чтения"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl
+                      bg-zinc-900/60 border border-zinc-800 text-sm text-zinc-100"
+              >
+                <span>⭐</span>
+                <span class="font-semibold">${Number(state.xp?.xp_total ?? 0)}</span>
+              </span>
+
               <span
                 title="${state.streak?.icon === 'fire'
                   ? 'Сегодня есть чтение'
@@ -2057,6 +2073,12 @@ ensureAuthGate();
           const data = await apiDeleteBook(title, author);
           state.books = normalizeBooks(data.books || []);
           state.progress = data.progress || [];
+          // ⭐ XP
+          try {
+            state.xp = await apiXp();
+          } catch (e) {
+            console.warn("xp failed", e);
+          }
         
           // если есть AI-список — пересчитаем (чтобы удалённая книга снова могла появиться)
           if (state.gpt && Array.isArray(state.gpt.list)) {
