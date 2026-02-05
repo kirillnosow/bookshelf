@@ -1544,6 +1544,12 @@ ensureAuthGate();
     `;
   }  
 
+  function nowLocalISO() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }  
+
   function renderRecommendationsPage() {
     const gpt = state.gpt || { list: [], loading: false, error: null };
   
@@ -1755,8 +1761,20 @@ ensureAuthGate();
         ${input("ap_endPage", "Страница завершения", "number")}
   
         <!-- Даты — как было (две колонки) -->
-        ${input("ap_startAt", "Дата и время начала чтения", "text", "YYYY-MM-DD HH:mm")}
-        ${input("ap_endAt", "Дата и время окончания чтения", "text", "YYYY-MM-DD HH:mm")}
+        ${input(
+          "ap_startAt",
+          "Дата и время начала чтения",
+          "text",
+          "YYYY-MM-DD HH:mm",
+          esc(state.modals.addProgress?.startAt || "")
+        )}
+        ${input(
+          "ap_endAt",
+          "Дата и время окончания чтения",
+          "text",
+          "YYYY-MM-DD HH:mm",
+          esc(state.modals.addProgress?.endAt || "")
+        )}        
       </div>
     `;
   }  
@@ -1915,9 +1933,12 @@ ensureAuthGate();
     };
   
     if (btnAddProgress) btnAddProgress.onclick = () => {
-      state.modals.addProgress = true;
-      render({ main: false, modals: true, chart: false }); // ✅ только модалка, без графика
-    };
+      state.modals.addProgress = {
+        startAt: nowLocalISO(),
+        endAt: nowLocalISO(),
+      };
+      render({ main: false, modals: true, chart: false });
+    };    
   
     const btnMonths = qs("#btnChartMonths");
     const btnYears = qs("#btnChartYears");
