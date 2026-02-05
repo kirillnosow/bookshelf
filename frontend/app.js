@@ -2725,6 +2725,12 @@ ensureAuthGate();
         console.warn("streak failed", e);
       }
 
+      try {
+        state.xp = await apiXp();
+      } catch (e) {
+        console.warn("xp failed", e);
+      }
+
       state.ui.loading = false;
       render();
     } catch (e) {
