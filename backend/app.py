@@ -114,13 +114,11 @@ def _parse_dt(s: str):
 
 
 def compute_streak(progress_rows):
-    # progress_rows: [{startAt, endAt, ...}, ...]  как в repo.read_all() :contentReference[oaicite:3]{index=3}
     days = set()
     for p in (progress_rows or []):
         dt = _parse_dt(p.get("endAt")) or _parse_dt(p.get("startAt"))
         if not dt:
             continue
-        # даты в таблице у тебя локальные, без TZ → просто берём date()
         days.add(dt.date())
 
     today = datetime.now(TZ).date()
@@ -128,41 +126,52 @@ def compute_streak(progress_rows):
     if not days:
         return {
             "streak": 0,
-            "longest": 0,
+            "icon": "candle",   # candle|fire
+            "today_has_reading": False,
             "last_day": None,
-            "active": False,
             "today": today.isoformat(),
         }
 
     last_day = max(days)
     gap = (today - last_day).days
 
-    # если пропущен минимум 1 день "между" (последнее чтение <= позавчера) — стрик сгорает
-    if gap > 1:
+    # 3) пропущен день (последняя запись позавчера или раньше) -> сгорел
+    if gap >= 2:
         return {
             "streak": 0,
-            "longest": _longest_streak(days),
+            "icon": "candle",
+            "today_has_reading": False,
             "last_day": last_day.isoformat(),
-            "active": False,
             "today": today.isoformat(),
         }
 
-    # считаем подряд назад от last_day
+    # посчитаем длину "цепочки" на момент last_day
     cur = last_day
     streak = 0
     while cur in days:
         streak += 1
         cur = date.fromordinal(cur.toordinal() - 1)
 
-    # active = стрик ещё не сгорел (last_day сегодня или вчера)
-    return {
-        "streak": streak,
-        "longest": _longest_streak(days),
-        "last_day": last_day.isoformat(),
-        "active": True,
-        "today": today.isoformat(),
-    }
+    # 1) сегодня есть чтение -> огонёк
+    if gap == 0:
+        return {
+            "streak": streak,
+            "icon": "fire",
+            "today_has_reading": True,
+            "last_day": last_day.isoformat(),
+            "today": today.isoformat(),
+        }
 
+    # 2) сегодня нет чтения, но вчера было:
+    # показываем свечку и N только если стрик > 1, иначе (по твоему условию) -> 0
+    if gap == 1:
+        return {
+            "streak": streak if streak > 1 else 0,
+            "icon": "candle",
+            "today_has_reading": False,
+            "last_day": last_day.isoformat(),
+            "today": today.isoformat(),
+        }
 
 def _longest_streak(days_set: set[date]) -> int:
     if not days_set:

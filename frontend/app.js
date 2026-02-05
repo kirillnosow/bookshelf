@@ -134,7 +134,13 @@ ensureAuthGate();
     ui: { loading: true, error: null },
     modals: { addBook: false, editBook: null, addProgress: null },
     gpt: { loading:false, error:null, list:[], lastAt:null },
-    streak: { streak: 0, longest: 0, last_day: null, active: false, today: null },
+    streak: {
+      streak: 0,
+      icon: "candle", // "fire" | "candle"
+      today_has_reading: false,
+      last_day: null,
+      today: null,
+    },    
   };
 
   function normKey(title, author) {
@@ -1263,13 +1269,15 @@ ensureAuthGate();
           <div class="flex items-center gap-2">
             ${state.view.page==="books" ? `
               <span
-                title="${state.streak?.active
-                  ? "Стрик активен"
-                  : "Стрик сгорел — начни заново"}"
-                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl
-                      bg-zinc-900/60 border border-zinc-800 text-sm text-zinc-100"
+                title="${state.streak?.icon === 'fire'
+                  ? 'Сегодня есть чтение'
+                  : 'Сегодня чтения нет'}"
+                class="inline-flex items-center gap-1.5
+                      px-3 py-2 rounded-xl
+                      bg-zinc-900/60 border border-zinc-800
+                      text-sm text-zinc-100"
               >
-                <span>${state.streak?.active ? "🔥" : "🕯️"}</span>
+                <span>${state.streak?.icon === "fire" ? "🔥" : "🕯️"}</span>
                 <span class="font-semibold">${Number(state.streak?.streak ?? 0)}</span>
               </span>
 
@@ -2599,12 +2607,11 @@ ensureAuthGate();
         state.gpt.list = state.gpt.list || [];
       }
 
-      // подгружаем данные по стрикам
       try {
         state.streak = await apiStreak();
-      } catch {
-        // не критично
-      }      
+      } catch (e) {
+        console.warn("streak failed", e);
+      }
 
       state.ui.loading = false;
       render();
