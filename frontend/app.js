@@ -357,9 +357,23 @@ ensureAuthGate();
       if (root.__bookInit) return;
       root.__bookInit = true;
   
-      const books = (state.books || []).slice().sort((a,b) =>
-        (a.title||"").localeCompare(b.title||"", "ru")
-      );
+      function statusRank(s) {
+        const st = normalizeStatus(s);
+        if (st === "reading") return 0;   // Читаю
+        if (st === "planned") return 1;   // Хочу прочитать
+        return 2;                         // остальные (например, прочитано)
+      }
+      
+      const books = (state.books || [])
+        .slice()
+        .sort((a, b) => {
+          const ra = statusRank(a.status);
+          const rb = statusRank(b.status);
+          if (ra !== rb) return ra - rb;
+      
+          // внутри группы — по названию
+          return (a.title || "").localeCompare((b.title || ""), "ru");
+        });      
   
       const norm = (s) => (s || "").toString().trim().toLowerCase();
   
