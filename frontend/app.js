@@ -1260,16 +1260,31 @@ ensureAuthGate();
             </div>
           </div>
 
-          <div class="flex gap-2">
+          <div class="flex items-center gap-2">
             ${state.view.page==="books" ? `
-              <button id="btnAddBook" class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
+              <span
+                title="${state.streak?.active
+                  ? "Стрик активен"
+                  : "Стрик сгорел — начни заново"}"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl
+                      bg-zinc-900/60 border border-zinc-800 text-sm text-zinc-100"
+              >
+                <span>${state.streak?.active ? "🔥" : "🕯️"}</span>
+                <span class="font-semibold">${Number(state.streak?.streak ?? 0)}</span>
+              </span>
+
+              <button id="btnAddBook"
+                class="px-3 py-2 rounded-xl bg-zinc-100 text-zinc-950 font-medium hover:bg-white">
                 Добавить книгу
               </button>
-              <button id="btnAddProgress" class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-700 hover:bg-zinc-700">
+
+              <button id="btnAddProgress"
+                class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-700 hover:bg-zinc-700">
                 Добавить прогресс
               </button>
             ` : `
-              <button id="btnGoBooks" class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-700 hover:bg-zinc-700">
+              <button id="btnGoBooks"
+                class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-700 hover:bg-zinc-700">
                 На главную
               </button>
             `}
@@ -1279,14 +1294,6 @@ ensureAuthGate();
         ${error ? `<div class="mt-4 p-3 rounded-xl bg-red-950/40 border border-red-900 text-red-200">${esc(error)}</div>` : ""}
   
         <div class="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-3">
-          ${statCard(
-            "Стрик",
-            `${state.streak?.active ? "🔥" : "🕯️"} ${state.streak?.streak ?? 0}`,
-            state.streak?.active
-              ? (state.streak?.last_day === state.streak?.today ? "Сегодня ✅" : "Вчера ✅ (сегодня ещё можно)")
-              : "Сгорел — начни заново",
-            null, null, null, "", "books"
-          )}
           ${statCard(
             "Прочитано",
             stats.cur.completed,
